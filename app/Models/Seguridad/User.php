@@ -2,6 +2,7 @@
 
 namespace App\Models\Seguridad;
 
+use App\Models\Encuesta\GrupoMeta;
 use App\Models\Registro\Persona;
 use App\Models\Reportes\Reporte;
 use App\Models\rhu\EmpleadoPuesto;
@@ -100,18 +101,13 @@ class User extends Authenticatable implements Auditable
         return $this->belongsTo(Persona::class, 'id_persona');
     }
 
-    public function empleadosPuestos(): HasMany
+    public function gruposMetas(): HasMany
     {
-        return $this->hasMany(EmpleadoPuesto::class, 'id_usuario');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 
-    public function reportes(): HasMany
+    public function encuestas(): HasMany
     {
-        return $this->hasMany(Reporte::class, 'id_usuario_reporta');
-    }
-
-    public function escuela(): BelongsTo
-    {
-        return $this->belongsTo(Escuela::class, 'id_escuela');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 }
