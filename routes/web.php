@@ -13,7 +13,6 @@ Route::get('/', function () {
 
 Route::middleware('auth', 'verified', 'two_factor')->group(function () {
 
-    Route::get('/inicio', [InicioController::class, 'inicio'])->name('dashboard');
 
     Route::get('/forbidden', function () {
         return view('errors.forbidden');
