@@ -20,8 +20,9 @@ use App\Notifications\SendTwoFactorCode;
 use Illuminate\Support\Facades\DB;
 use IvanoMatteo\LaravelDeviceTracking\Facades\DeviceTracker;
 use IvanoMatteo\LaravelDeviceTracking\Traits\UseDevices;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements Auditable
+class User extends Authenticatable implements Auditable, JWTSubject
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, UseDevices, \OwenIt\Auditing\Auditable;
 
@@ -96,6 +97,10 @@ class User extends Authenticatable implements Auditable
         $this->attributes['carnet'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
     }
 
+    //
+    // Relationships
+    //
+
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class, 'id_persona');
@@ -109,5 +114,19 @@ class User extends Authenticatable implements Auditable
     public function encuestas(): HasMany
     {
         return $this->hasMany(GrupoMeta::class, 'id_usuario');
+    }
+
+    //
+    // JWTSubject
+    //
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey(); // Devuelve el ID del usuario
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return []; // Claims personalizados (puedes añadir más si lo necesitas)
     }
 }
