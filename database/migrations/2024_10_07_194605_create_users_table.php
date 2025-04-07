@@ -24,11 +24,6 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamp('email_verified_at')->nullable();
             $table->timestamps();
-            $table->foreignId('id_escuela')
-                ->nullable()
-                ->constrained('escuelas')
-                ->onDelete('set null');
-                $table->integer('es_estudiante')->default(1);  // 1 es estudiante, 0 otro tipo de usuario
         });
     }
 
