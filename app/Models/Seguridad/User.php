@@ -26,6 +26,7 @@ class User extends Authenticatable implements Auditable, JWTSubject
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, UseDevices, \OwenIt\Auditing\Auditable;
 
+    protected $guard_name = 'api'; // Especificar el guard por defecto
 
     protected $fillable = [
         'carnet',

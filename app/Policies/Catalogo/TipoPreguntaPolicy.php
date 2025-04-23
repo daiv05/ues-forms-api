@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Policies;
+namespace App\Policies\Catalogo;
 
 use App\Models\Catalogo\TipoPregunta;
 use App\Models\Seguridad\User;
@@ -8,12 +8,13 @@ use Illuminate\Auth\Access\Response;
 
 class TipoPreguntaPolicy
 {
-    /**
+    /*
+     *
      * Determine whether the user can view any models.
-     */
+    */
     public function viewAny(User $user): bool
     {
-        return true;
+        return $user->hasPermissionTo('REPORTES_CREAR');
     }
 
     /**
@@ -21,7 +22,7 @@ class TipoPreguntaPolicy
      */
     public function view(User $user, TipoPregunta $tipoPregunta): bool
     {
-        return true;
+        return $user->hasPermissionTo('REPORTES_CREAR');
     }
 
     /**

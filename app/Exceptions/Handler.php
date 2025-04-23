@@ -2,8 +2,10 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Spatie\Permission\Exceptions\UnauthorizedException;
+use Illuminate\Http\JsonResponse;
 use Throwable;
 
 class Handler extends ExceptionHandler
@@ -45,15 +47,40 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+        /**
+         * Generate a standardized error response.
+         *
+         * @param string $message
+         * @param int $statusCode
+         * @return \Illuminate\Http\JsonResponse
+         */
     }
 
     public function render($request, Throwable $e)
     {
-        if ($e instanceof UnauthorizedException) {
-            return response()->view("errors.forbidden", [
-                "exception" => $e
-            ], 403);
+        if($e instanceof AuthenticationException) {
+            return $this->respondWithError('No estás autenticado', 401);
+        }
+
+        if ($e instanceof AuthorizationException) {
+            return $this->respondWithError('No tienes permiso para acceder a esta ruta.', 403);
         }
         return parent::render($request, $e);
+    }
+
+    /*
+     *
+     * Helper para devolver respuestas JSON consistentes.
+     *
+     * @param string $message
+     * @param int $statusCode
+     * @return JsonResponse
+    */
+    protected function respondWithError(string $message, int $statusCode): JsonResponse
+    {
+        return response()->json([
+            'error' => true,
+            'message' => $message,
+        ], $statusCode);
     }
 }

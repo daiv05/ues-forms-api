@@ -17,9 +17,9 @@ use App\Http\Controllers\Catalogo\TiposPreguntasController;
 |
 */
 
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login']);
 Route::middleware('auth:api')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    Orion::resource('catalogo/tipos-preguntas',TiposPreguntasController::class);
+    Orion::resource('catalogo/tipos-preguntas',TiposPreguntasController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
 });
