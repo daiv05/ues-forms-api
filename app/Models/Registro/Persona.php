@@ -17,8 +17,7 @@ class Persona extends Model implements Auditable
     protected $fillable = [
         'nombre',
         'apellido',
-        'fecha_nacimiento',
-        'telefono'
+        'identificacion'
     ];
 
     public function setNombreAttribute($value)
@@ -30,6 +29,7 @@ class Persona extends Model implements Auditable
     {
         $this->attributes['apellido'] =strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
     }
+    
     public function usuario() : HasOne
     {
         return $this->hasOne(User::class, 'id_persona');

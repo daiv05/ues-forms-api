@@ -13,11 +13,15 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('carnet');
+            $table->string('username')->unique();
             $table->string('email')->unique();
             $table->string('password');
             $table->foreignId('id_persona')
                 ->constrained('personas')
+                ->onUpdate('cascade')
+                ->onDelete('restrict');
+            $table->foreignId('id_estado')
+                ->constrained('ctl_estados')
                 ->onUpdate('cascade')
                 ->onDelete('restrict');
             $table->boolean('activo')->default(true);

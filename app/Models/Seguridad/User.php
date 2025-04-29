@@ -2,6 +2,7 @@
 
 namespace App\Models\Seguridad;
 
+use App\Models\Catalogo\Estado;
 use App\Models\Encuesta\GrupoMeta;
 use App\Models\Registro\Persona;
 use App\Models\Reportes\Reporte;
@@ -29,13 +30,12 @@ class User extends Authenticatable implements Auditable, JWTSubject
     protected $guard_name = 'api'; // Especificar el guard por defecto
 
     protected $fillable = [
-        'carnet',
+        'username',
         'email',
         'password',
         'id_persona',
         'activo',
-        'id_escuela',
-        'es_estudiante'
+        'id_estado'
     ];
 
     protected $hidden = [
@@ -82,20 +82,9 @@ class User extends Authenticatable implements Auditable, JWTSubject
         $this->notify(new SendTwoFactorCode($code));
     }
 
-    public function markDeviceAsVerified(): void
-    {
-        DeviceTracker::flagCurrentAsVerified();
-    }
-
-    public function hasDeviceVerified(): bool
-    {
-        $device = DeviceTracker::detectFindAndUpdate();
-        return $device->currentUserStatus->verified_at !== null;
-    }
-
     public function setCarnetAttribute($value)
     {
-        $this->attributes['carnet'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
+        $this->attributes['username'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
     }
 
     //
@@ -115,6 +104,11 @@ class User extends Authenticatable implements Auditable, JWTSubject
     public function encuestas(): HasMany
     {
         return $this->hasMany(GrupoMeta::class, 'id_usuario');
+    }
+
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(Estado::class, 'id_estado');
     }
 
     //

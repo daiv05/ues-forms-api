@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Seguridad;
 
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
-use BladeUI\Icons\Factory;
 use Illuminate\Http\Request;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -21,7 +20,7 @@ class RoleController extends Controller
         // Retornar la vista y pasar los datos
         return view('seguridad.roles.index', compact('roles'));
     }
-    public function create():Factory|View
+    public function create(): View
     {
         $permissions = Permission::all();
 
@@ -37,7 +36,7 @@ class RoleController extends Controller
             'name.unique' => 'Ya existe un rol con ese nombre.',
             'permissions.string' => 'Los permisos deben ser una lista de IDs separados por comas.'
         ]);
-              $role = Role::create([
+        $role = Role::create([
             'name' => $request->name,
         ]);
         $permissions = is_string($request->permissions)
@@ -54,7 +53,7 @@ class RoleController extends Controller
             'content' => 'Rol creado correctamente.',
         ]);
     }
-    public function edit(string $id):Factory|View
+    public function edit(string $id): View
     {
         $role = Role::with('permissions')->findOrFail($id);
         $permissions = Permission::all();
@@ -90,8 +89,7 @@ class RoleController extends Controller
     public function show(string $id)
     {
         $role = Role::with('permissions')->findOrFail($id);
-        $permissions = $role->permissions()->paginate(GeneralEnum::PAGINACION->value/2);
+        $permissions = $role->permissions()->paginate(GeneralEnum::PAGINACION->value / 2);
         return view('seguridad.roles.show', compact('role', 'permissions'));
     }
-
 }

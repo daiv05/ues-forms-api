@@ -4,10 +4,11 @@ namespace App\Enums;
 
 enum EstadosEnum: int
 {
-    case ASIGNADO = 1;
-    case EN_PROCESO = 2;
-    case EN_PAUSA = 3;
-    case COMPLETADO = 4;
-    case FINALIZADO = 5;
-    case INCOMPLETO = 6;
+    case ACTIVO = 1;
+    case INACTIVO = 2;
+    case PENDIENTE = 3;
+    case EN_EDICION = 4;
+    case RECHAZADO = 5;
+    case APROBADO = 6;
+    case BLOQUEADO = 7;
 }
