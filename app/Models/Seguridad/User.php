@@ -2,6 +2,7 @@
 
 namespace App\Models\Seguridad;
 
+use App\Models\Encuesta\GrupoMeta;
 use App\Models\Registro\Persona;
 use App\Models\Reportes\Reporte;
 use App\Models\rhu\EmpleadoPuesto;
@@ -19,11 +20,13 @@ use App\Notifications\SendTwoFactorCode;
 use Illuminate\Support\Facades\DB;
 use IvanoMatteo\LaravelDeviceTracking\Facades\DeviceTracker;
 use IvanoMatteo\LaravelDeviceTracking\Traits\UseDevices;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements Auditable
+class User extends Authenticatable implements Auditable, JWTSubject
 {
     use HasApiTokens, HasFactory, HasRoles, Notifiable, UseDevices, \OwenIt\Auditing\Auditable;
 
+    protected $guard_name = 'api'; // Especificar el guard por defecto
 
     protected $fillable = [
         'carnet',
@@ -95,23 +98,36 @@ class User extends Authenticatable implements Auditable
         $this->attributes['carnet'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
     }
 
+    //
+    // Relationships
+    //
+
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class, 'id_persona');
     }
 
-    public function empleadosPuestos(): HasMany
+    public function gruposMetas(): HasMany
     {
-        return $this->hasMany(EmpleadoPuesto::class, 'id_usuario');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 
-    public function reportes(): HasMany
+    public function encuestas(): HasMany
     {
-        return $this->hasMany(Reporte::class, 'id_usuario_reporta');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 
-    public function escuela(): BelongsTo
+    //
+    // JWTSubject
+    //
+
+    public function getJWTIdentifier()
     {
-        return $this->belongsTo(Escuela::class, 'id_escuela');
+        return $this->getKey(); // Devuelve el ID del usuario
+    }
+
+    public function getJWTCustomClaims()
+    {
+        return []; // Claims personalizados (puedes añadir más si lo necesitas)
     }
 }
