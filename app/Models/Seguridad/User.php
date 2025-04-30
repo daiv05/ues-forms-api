@@ -5,9 +5,6 @@ namespace App\Models\Seguridad;
 use App\Models\Catalogo\Estado;
 use App\Models\Encuesta\GrupoMeta;
 use App\Models\Registro\Persona;
-use App\Models\Reportes\Reporte;
-use App\Models\rhu\EmpleadoPuesto;
-use App\Models\Mantenimientos\Escuela;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,19 +12,16 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use OwenIt\Auditing\Contracts\Auditable;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\SendTwoFactorCode;
 use Illuminate\Support\Facades\DB;
-use IvanoMatteo\LaravelDeviceTracking\Facades\DeviceTracker;
-use IvanoMatteo\LaravelDeviceTracking\Traits\UseDevices;
 use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements Auditable, JWTSubject
+class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, HasFactory, HasRoles, Notifiable, UseDevices, \OwenIt\Auditing\Auditable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
-    protected $guard_name = 'api'; // Especificar el guard por defecto
+    protected $guard_name = 'api';
 
     protected $fillable = [
         'username',
@@ -82,9 +76,14 @@ class User extends Authenticatable implements Auditable, JWTSubject
         $this->notify(new SendTwoFactorCode($code));
     }
 
-    public function setCarnetAttribute($value)
+    public function setUsernameAttribute($value)
     {
         $this->attributes['username'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
+    }
+
+    public function getRoles()
+    {
+        return $this->roles();
     }
 
     //
@@ -122,6 +121,18 @@ class User extends Authenticatable implements Auditable, JWTSubject
 
     public function getJWTCustomClaims()
     {
-        return []; // Claims personalizados (puedes añadir más si lo necesitas)
+        return [
+            'id' => $this->id,
+            'username' => $this->username,
+            'email' => $this->email,
+            'roles' => $this->getRoles()->pluck('name'),
+            'permissions' => $this->getAllPermissions()->pluck('name'),
+        ];
+    }
+
+    // Validaciones
+    public function checkPermissions($permission = []): bool
+    {
+        return $this->hasAllPermissions($permission);
     }
 }

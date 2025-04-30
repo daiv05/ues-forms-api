@@ -10,20 +10,22 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Catalogo\ClasePregunta;
 use App\Models\Encuesta\Pregunta;
 
-class CatalogoTipoPregunta extends Model
+class CategoriaPregunta extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
-    protected $table = 'qst_catalogo_tipos_preguntas';
+    protected $table = 'qst_categorias_preguntas';
     protected $fillable = [
         'id_clase_pregunta',
         'nombre',
         'descripcion',
-        'es_txt_largo',
-        'es_escala_num',
-        'max_seleccion',
+        'max_text_length',
+        'max_seleccion_items',
+        'es_escala_numerica',
+        'es_booleano',
         'permite_otros',
+        'activo'
     ];
 
     public function clasePregunta(): BelongsTo
@@ -33,7 +35,7 @@ class CatalogoTipoPregunta extends Model
 
     public function preguntas(): HasMany
     {
-        return $this->hasMany(Pregunta::class, 'id_catalogo_tipo_pregunta');
+        return $this->hasMany(Pregunta::class, 'id_categoria_pregunta');
     }
 
 

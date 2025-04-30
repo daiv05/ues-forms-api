@@ -11,4 +11,34 @@ enum EstadosEnum: int
     case RECHAZADO = 5;
     case APROBADO = 6;
     case BLOQUEADO = 7;
+
+    // Estados de encuesta
+    public function encuestas(): array
+    {
+        return [
+            self::ACTIVO,
+            self::INACTIVO,
+            self::EN_EDICION,
+        ];
+    }
+
+    // Estados de usuario
+    public function usuarios(): array
+    {
+        return [
+            self::ACTIVO,
+            self::INACTIVO,
+            self::BLOQUEADO,
+        ];
+    }
+
+    // Estados de solicitud
+    public function solicitudes(): array
+    {
+        return [
+            self::PENDIENTE,
+            self::RECHAZADO,
+            self::APROBADO,
+        ];
+    }
 }

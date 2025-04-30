@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('roles', function (Blueprint $table) {
             $table->boolean('activo')->default(true);
-            $table->string('descripcion')->nullable();
+            $table->string('description')->nullable();
         });
     }
 
@@ -24,7 +24,7 @@ return new class extends Migration
     {
         Schema::table('roles', function (Blueprint $table) {
             $table->dropColumn('activo');
-            $table->dropColumn('descripcion');
+            $table->dropColumn('description');
         });
     }
 };

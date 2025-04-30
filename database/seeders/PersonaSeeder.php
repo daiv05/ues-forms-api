@@ -13,20 +13,17 @@ class PersonaSeeder extends Seeder
             [
                 'nombre' => 'DAVID',
                 'apellido' => 'DERAS',
-                'fecha_nacimiento' => '2001-08-04',
-                'telefono' => '74641460',
+                'identificacion' => '24242432',
             ],
             [
                 'nombre' => 'EDENILSON',
                 'apellido' => 'ROSALES',
-                'fecha_nacimiento' => '2001-08-04',
-                'telefono' => '74641460',
+                'identificacion' => '77643535',
             ],
             [
                 'nombre' => 'GABRIELA',
                 'apellido' => 'MIRANDA',
-                'fecha_nacimiento' => '2003-11-01',
-                'telefono' => '74641460',
+                'identificacion' => '35282255',
             ],
         ];
 

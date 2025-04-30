@@ -10,9 +10,9 @@ class Role extends Model  implements Auditable
 {
     use HasFactory,\OwenIt\Auditing\Auditable;
 
-    protected $fillable = ['name', 'activo'];
-    protected $table = 'roles';
+    protected $fillable = ['name', 'description', 'activo'];
 
+    protected $table = 'roles';
 
     public function setNameAttribute($value)
     {

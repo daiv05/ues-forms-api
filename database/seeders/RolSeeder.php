@@ -34,7 +34,7 @@ class RolSeeder extends Seeder
         foreach ($roles as $rol) {
             $role = Role::create([
                 'name' => $rol['nombre'],
-                'descripcion' => $rol['descripcion'],
+                'description' => $rol['descripcion'],
                 'activo' => true,
                 'guard_name' => 'api'
             ]);
