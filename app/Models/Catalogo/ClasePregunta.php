@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Catalogo\TipoPregunta;
-use App\Models\Catalogo\CatalogoTipoPregunta;
+use App\Models\Catalogo\CategoriaPregunta;
 
 class ClasePregunta extends Model
 {
@@ -27,9 +27,9 @@ class ClasePregunta extends Model
         return $this->belongsTo(TipoPregunta::class, 'id_tipo_pregunta');
     }
 
-    public function catalogoTiposPreguntas(): HasMany
+    public function categoriasPreguntas(): HasMany
     {
-        return $this->hasMany(CatalogoTipoPregunta::class, 'id_clase_pregunta');
+        return $this->hasMany(CategoriaPregunta::class, 'id_clase_pregunta');
     }
 
 }

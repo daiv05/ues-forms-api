@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            $table->boolean('activo')->default(true); // Añadir la columna 'activo'
+            $table->boolean('activo')->default(true);
+            $table->string('description')->nullable();
         });
     }
 
@@ -22,7 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('roles', function (Blueprint $table) {
-            $table->dropColumn('activo'); // Eliminar la columna 'activo' si la migración se revierte
+            $table->dropColumn('activo');
+            $table->dropColumn('description');
         });
     }
 };

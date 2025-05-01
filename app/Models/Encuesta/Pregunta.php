@@ -2,7 +2,7 @@
 
 namespace App\Models\Encuesta;
 
-use App\Models\Catalogo\CatalogoTipoPregunta;
+use App\Models\Catalogo\CategoriaPregunta;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,7 +16,7 @@ class Pregunta extends Model
 
     protected $table = 'srvy_preguntas';
     protected $fillable = [
-        'id_catalogo_tipo_pregunta',
+        'id_categoria_pregunta',
         'id_encuesta',
         'descripcion',
         'es_abierta',
@@ -27,9 +27,9 @@ class Pregunta extends Model
         return $this->belongsTo(Encuesta::class, 'id_encuesta');
     }
 
-    function catalogoTipoPregunta(): BelongsTo
+    function categoriaPregunta(): BelongsTo
     {
-        return $this->belongsTo(CatalogoTipoPregunta::class, 'id_catalogo_tipo_pregunta');
+        return $this->belongsTo(CategoriaPregunta::class, 'id_categoria_pregunta');
     }
 
     function preguntasTextosBooleanos(): HasMany

@@ -11,14 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('two_factor_tokens', function (Blueprint $table) {
+        Schema::create('ctl_estados', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')
-                ->constrained()
-                ->onUpdate('cascade')
-                ->onDelete('cascade');
-            $table->string('token');
-            $table->timestamp('expires_at');
+            $table->string('nombre')->unique();
+            $table->boolean('activo')->default(true);
             $table->timestamps();
         });
     }
@@ -28,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('two_factor_tokens');
+        Schema::dropIfExists('ctl_estados');
     }
 };

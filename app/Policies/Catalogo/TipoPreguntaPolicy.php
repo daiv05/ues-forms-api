@@ -14,7 +14,7 @@ class TipoPreguntaPolicy
     */
     public function viewAny(User $user): bool
     {
-        return $user->hasPermissionTo('REPORTES_CREAR');
+        return $user->hasPermissionTo('usuario_crear');
     }
 
     /**
@@ -22,7 +22,7 @@ class TipoPreguntaPolicy
      */
     public function view(User $user, TipoPregunta $tipoPregunta): bool
     {
-        return $user->hasPermissionTo('REPORTES_CREAR');
+        return $user->hasPermissionTo('usuario_crear');
     }
 
     /**
