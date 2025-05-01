@@ -6,11 +6,10 @@ use App\Models\Seguridad\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use OwenIt\Auditing\Contracts\Auditable;
 
-class Persona extends Model implements Auditable
+class Persona extends Model
 {
-    use HasFactory,\OwenIt\Auditing\Auditable;
+    use HasFactory;
 
     protected $table = 'personas';
 
