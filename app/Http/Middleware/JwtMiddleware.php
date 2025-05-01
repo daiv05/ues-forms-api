@@ -16,9 +16,21 @@ class JwtMiddleware
   public function handle(Request $request, Closure $next)
   {
     $error = true;
-    $message = 'Se requiere un token de sesión para acceder a este recurso';
+    $message = '';
 
     try {
+      // Revisar si el token de sesión está presente
+      if (!$request->hasHeader('Authorization')) {
+        return $this->error('No se ha proporcionado un token de sesión', '', 401);
+      }
+      // Obtener el token de sesión
+      $token = $request->bearerToken();
+      if (!$token) {
+        return $this->error('No se ha proporcionado un token de sesión', '', 401);
+      }
+      // Validar el token de sesión
+      $user = JWTAuth::setToken($token)->checkOrFail();
+      // Si el token es válido, obtener el usuario autenticado
       $user = JWTAuth::parseToken()->authenticate();
       if ($user) {
         $error = false;
@@ -28,7 +40,7 @@ class JwtMiddleware
     } catch (Exceptions\TokenExpiredException $e) {
       $message = 'Su token de sesión ha expirado';
     } catch (Exception $e) {
-      $message = 'Debe proporcionar un token de sesión válido';
+      $message = $e->getMessage();
     }
 
     return ($error) ? $this->error($message, $message, 401) : $next($request);
