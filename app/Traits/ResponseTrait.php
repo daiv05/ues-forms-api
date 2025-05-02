@@ -19,6 +19,28 @@ trait ResponseTrait
     }
 
     /**
+     * Respuesta exitosa con paginación
+     */
+    protected function successPaginated(string $message = 'Operación exitosa', $data = [], int $status = 200): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => $data['data'],
+            'pagination' => [
+                'from' => $data['pagination']['from'],
+                'to' => $data['pagination']['to'],
+                'per_page' => $data['pagination']['per_page'],
+                'page' => $data['pagination']['page'],
+                'nextPage' => $data['pagination']['nextPage'],
+                'previousPage' => $data['pagination']['previousPage'],
+                'totalPages' => $data['pagination']['totalPages'],
+                'totalItems' => $data['pagination']['totalItems'],
+            ],
+        ], $status);
+    }
+
+    /**
      * Respuesta de error
      */
     protected function error(string $message = 'Ocurrió un error', string $errors, int $status = 400): JsonResponse

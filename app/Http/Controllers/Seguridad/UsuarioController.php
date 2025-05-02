@@ -13,10 +13,11 @@ use Illuminate\Validation\Rule;
 use App\Traits\ResponseTrait;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
+use App\Traits\PaginationTrait;
 
 class UsuarioController extends Controller
 {
-    use ResponseTrait;
+    use ResponseTrait, PaginationTrait;
 
     // API
     public function index(Request $request)
@@ -42,12 +43,12 @@ class UsuarioController extends Controller
             if ($validator->fails()) {
                 return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
             }
-
             $validatedData = $validator->validated();
-
-            $usuarios = User::with('persona')->paginate($validatedData['per_page'] ?? GeneralEnum::PAGINACION->value);
-
-            return $this->success('Usuarios obtenidos exitosamente', $usuarios, Response::HTTP_OK);
+            $perPage = $validatedData['per_page'] ?? GeneralEnum::PAGINACION->value;
+            $currentPage = $validatedData['page'] ?? 1;
+            $data = User::with('persona')->get();
+            $paginatedData = $this->paginate($data->toArray(), $perPage, $currentPage);
+            return $this->successPaginated('Usuarios obtenidos exitosamente', $paginatedData, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al obtener los usuarios', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -79,7 +80,6 @@ class UsuarioController extends Controller
                 'id_persona.required' => 'La persona es obligatoria',
                 'id_persona.integer' => 'La persona debe ser un número entero',
                 'id_persona.exists' => 'La persona no existe en la base de datos',
-                // Otros mensajes de error...
             ]);
 
             if ($validator->fails()) {
@@ -90,7 +90,6 @@ class UsuarioController extends Controller
 
             $usuario = User::create([
                 ...$validatedData,
-                // Otros campos que necesites...
             ]);
 
             return $this->success('Usuario creado exitosamente', $usuario, Response::HTTP_CREATED);
