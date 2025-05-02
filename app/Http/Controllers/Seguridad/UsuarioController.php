@@ -26,29 +26,32 @@ class UsuarioController extends Controller
             $validator = Validator::make($request->all(), [
                 'nombre_usuario' => 'string|max:50|regex:/^[a-zA-Z0-9_]+$/',
                 'id_estado' => 'integer|exists:estados,id',
-                'page' => 'integer|min:1',
-                'per_page' => 'integer|min:1|max:100',
             ], [
                 'nombre_usuario.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
                 'nombre_usuario.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
                 'id_estado.exists' => 'El estado debe existir en la base de datos',
-                'id_estado.integer' => 'El estado debe ser un número entero',
-                'page.integer' => 'El número de página debe ser un número entero',
-                'page.min' => 'El número de página debe ser al menos 1',
-                'per_page.integer' => 'El número de elementos por página debe ser un número entero',
-                'per_page.min' => 'El número de elementos por página debe ser al menos 1',
-                'per_page.max' => 'El número de elementos por página no puede ser mayor a 100',
+                'id_estado.integer' => 'El estado debe ser un número entero'
             ]);
 
             if ($validator->fails()) {
                 return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
             }
+
             $validatedData = $validator->validated();
-            $perPage = $validatedData['per_page'] ?? GeneralEnum::PAGINACION->value;
-            $currentPage = $validatedData['page'] ?? 1;
-            $data = User::with('persona')->get();
-            $paginatedData = $this->paginate($data->toArray(), $perPage, $currentPage);
-            return $this->successPaginated('Usuarios obtenidos exitosamente', $paginatedData, Response::HTTP_OK);
+            $query = User::with('persona');
+            if (isset($validatedData['nombre_usuario'])) {
+                $query->where('username', 'like', '%' . $validatedData['nombre_usuario'] . '%');
+            }
+            if (isset($validatedData['id_estado'])) {
+                $query->where('id_estado', $validatedData['id_estado']);
+            }
+            $usuarios = $query->get();
+            if ($request['paginate'] === "true") {
+                $paginatedData = $this->paginate($usuarios->toArray(), $request['per_page'] ?? GeneralEnum::PAGINACION->value, $request['page'] ?? 1);
+                return $this->successPaginated('Usuarios obtenssssidos exitosamente', $paginatedData, Response::HTTP_OK);
+            } else {
+                return $this->success('Usuarios obtrtttenidos exitosamente', $usuarios, Response::HTTP_OK);
+            }
         } catch (\Exception $e) {
             return $this->error('Error al obtener los usuarios', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
