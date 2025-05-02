@@ -6,10 +6,10 @@ use App\Http\Controllers\Seguridad\UsuarioController;
 
 // Roles y permisos
 Route::prefix('roles')->group(function () {
-    Route::get('/', [RoleController::class, 'index'])->middleware('permissions:roles_ver')->name('roles.index');
-    Route::post('/', [RoleController::class, 'store'])->middleware('permissions:roles_crear')->name('roles.store');
-    Route::put('/{id}', [RoleController::class, 'update'])->middleware('permissions:roles_editar')->name('roles.update');
-    Route::get('/{id}', [RoleController::class, 'show'])->middleware('permissions:roles_actualizar')->name('roles.show');
+    Route::get('/', [RoleController::class, 'index'])->middleware('permissions:rol_ver')->name('roles.index');
+    Route::post('/', [RoleController::class, 'store'])->middleware('permissions:rol_crear')->name('roles.store');
+    Route::get('/{id}', [RoleController::class, 'show'])->middleware('permissions:rol_ver')->name('roles.show');
+    Route::put('/{id}', [RoleController::class, 'update'])->middleware('permissions:rol_actualizar')->name('roles.update');
 });
 
 // Usuarios
