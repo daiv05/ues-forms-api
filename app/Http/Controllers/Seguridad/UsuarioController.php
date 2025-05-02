@@ -48,9 +48,9 @@ class UsuarioController extends Controller
             $usuarios = $query->get();
             if ($request['paginate'] === "true") {
                 $paginatedData = $this->paginate($usuarios->toArray(), $request['per_page'] ?? GeneralEnum::PAGINACION->value, $request['page'] ?? 1);
-                return $this->successPaginated('Usuarios obtenssssidos exitosamente', $paginatedData, Response::HTTP_OK);
+                return $this->successPaginated('Usuarios obtenidos exitosamente', $paginatedData, Response::HTTP_OK);
             } else {
-                return $this->success('Usuarios obtrtttenidos exitosamente', $usuarios, Response::HTTP_OK);
+                return $this->success('Usuarios obtenidos exitosamente', $usuarios, Response::HTTP_OK);
             }
         } catch (\Exception $e) {
             return $this->error('Error al obtener los usuarios', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
