@@ -11,10 +11,11 @@ use App\Traits\ResponseTrait;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Auth\Events\Validated;
 use Illuminate\Support\Facades\Validator;
+use App\Traits\PaginationTrait;
 
 class RoleController extends Controller
 {
-    use ResponseTrait;
+    use ResponseTrait, PaginationTrait;
 
     public function index(Request $request)
     {
@@ -22,17 +23,10 @@ class RoleController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:50|regex:/^[a-zA-Z0-9_]+$/',
                 'estado' => 'integer|in:0,1',
-                'page' => 'integer|min:1',
-                'per_page' => 'integer|min:1|max:100',
             ], [
                 'name.regex' => 'El nombre solo puede contener letras, números y guiones bajos',
                 'name.max' => 'El nombre no puede exceder los 50 caracteres',
-                'estado.in' => 'El estado debe ser 0 o 1',
-                'page.integer' => 'El número de página debe ser un número entero',
-                'page.min' => 'El número de página debe ser al menos 1',
-                'per_page.integer' => 'El número de elementos por página debe ser un número entero',
-                'per_page.min' => 'El número de elementos por página debe ser al menos 1',
-                'per_page.max' => 'El número de elementos por página no puede ser mayor a 100',
+                'estado.in' => 'El estado debe ser 0 o 1'
             ]);
 
             if ($validator->fails()) {
@@ -41,7 +35,18 @@ class RoleController extends Controller
 
             $validatedData = $validator->validated();
 
-            $roles = Role::with('permissions')->paginate($validatedData['per_page'] ?? GeneralEnum::PAGINACION->value);
+            $roles = Role::with('permissions')->when(isset($validatedData['name']), function ($query) use ($validatedData) {
+                $query->where('name', 'like', '%' . $validatedData['name'] . '%');
+            })->when(isset($validatedData['estado']), function ($query) use ($validatedData) {
+                $query->where('activo', $validatedData['estado']);
+            })->get();
+
+            if ($request['paginate'] === "true") {
+                $paginatedData = $this->paginate($roles->toArray(), $request['per_page'] ?? GeneralEnum::PAGINACION->value, $request['page'] ?? 1);
+                return $this->successPaginated('Roles obtenidos exitosamente', $paginatedData, Response::HTTP_OK);
+            } else {
+                return $this->success('Roles obtenidos exitosamente', $roles, Response::HTTP_OK);
+            }
 
             return $this->success('Roles obtenidos exitosamente', $roles, Response::HTTP_OK);
         } catch (\Exception $e) {
@@ -122,7 +127,7 @@ class RoleController extends Controller
 
             return $this->success('Rol actualizado exitosamente', $role, Response::HTTP_OK);
         } catch (\Exception $e) {
-            return $this->error('Error al actualizar el rol: ' . $e->getMessage());
+            return $this->error('Error al actualizar el rol', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
