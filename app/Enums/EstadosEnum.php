@@ -13,7 +13,7 @@ enum EstadosEnum: int
     case BLOQUEADO = 7;
 
     // Estados de encuesta
-    public function encuestas(): array
+    public static function encuestas(): array
     {
         return [
             self::ACTIVO,
@@ -23,7 +23,7 @@ enum EstadosEnum: int
     }
 
     // Estados de usuario
-    public function usuarios(): array
+    public static function usuarios(): array
     {
         return [
             self::ACTIVO,
@@ -33,7 +33,7 @@ enum EstadosEnum: int
     }
 
     // Estados de solicitud
-    public function solicitudes(): array
+    public static function solicitudes(): array
     {
         return [
             self::PENDIENTE,

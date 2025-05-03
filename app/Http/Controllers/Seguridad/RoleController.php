@@ -5,11 +5,10 @@ namespace App\Http\Controllers\Seguridad;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
+use App\Models\Seguridad\Role;
 use App\Traits\ResponseTrait;
+use Spatie\Permission\Models\Role as SpatieRole;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Auth\Events\Validated;
 use Illuminate\Support\Facades\Validator;
 use App\Traits\PaginationTrait;
 
@@ -22,11 +21,11 @@ class RoleController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'name' => 'string|max:50|regex:/^[a-zA-Z0-9_]+$/',
-                'estado' => 'integer|in:0,1',
+                'estado' => 'boolean',
             ], [
                 'name.regex' => 'El nombre solo puede contener letras, números y guiones bajos',
                 'name.max' => 'El nombre no puede exceder los 50 caracteres',
-                'estado.in' => 'El estado debe ser 0 o 1'
+                'estado.boolean' => 'El estado debe ser 1 o 0',
             ]);
 
             if ($validator->fails()) {
@@ -35,8 +34,8 @@ class RoleController extends Controller
 
             $validatedData = $validator->validated();
 
-            $roles = Role::with('permissions')->when(isset($validatedData['name']), function ($query) use ($validatedData) {
-                $query->where('name', 'like', '%' . $validatedData['name'] . '%');
+            $roles = SpatieRole::with('permissions')->when(isset($validatedData['name']), function ($query) use ($validatedData) {
+                $query->where('name', 'ilike', '%' . $validatedData['name'] . '%');
             })->when(isset($validatedData['estado']), function ($query) use ($validatedData) {
                 $query->where('activo', $validatedData['estado']);
             })->get();
@@ -47,8 +46,6 @@ class RoleController extends Controller
             } else {
                 return $this->success('Roles obtenidos exitosamente', $roles, Response::HTTP_OK);
             }
-
-            return $this->success('Roles obtenidos exitosamente', $roles, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al obtener los roles', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -61,7 +58,7 @@ class RoleController extends Controller
                 'name' => 'required|string|max:50|unique:roles,name|regex:/^[a-zA-Z0-9_]+$/',
                 'description' => 'string|max:255',
                 'activo' => 'boolean',
-                'permissions' => 'array',
+                'permissions' => 'required|array',
                 'permissions.*' => 'string|exists:permissions,name',
             ], [
                 'name.regex' => 'El nombre solo puede contener letras, números y guiones bajos',
@@ -79,10 +76,22 @@ class RoleController extends Controller
 
             $validatedData = $validator->validated();
 
-            $role = Role::create(['name' => $validatedData['name']]);
+            $role = Role::create(
+                [
+                    'name' => $validatedData['name'],
+                    'description' => $validatedData['description'] ?? null,
+                    'activo' => $validatedData['activo'] ?? 1,
+                    'guard_name' => 'api',
+                ]
+            );
 
             if (isset($validatedData['permissions'])) {
-                $role->syncPermissions($validatedData['permissions']);
+                $spatieRole = SpatieRole::findById($role->id);
+                if ($spatieRole) {
+                    $spatieRole->givePermissionTo($validatedData['permissions']);
+                } else {
+                    return $this->error('Error al crear el rol', 'No se encontró el rol', Response::HTTP_NOT_FOUND);
+                }
             }
 
             return $this->success('Rol creado exitosamente', $role, Response::HTTP_CREATED);
@@ -119,11 +128,19 @@ class RoleController extends Controller
 
             $role = Role::findOrFail($id);
             $role->name = $validatedData['name'];
-            $role->save();
+            $role->description = $validatedData['description'] ?? null;
+            $role->activo = $validatedData['activo'] ?? 1;
 
             if (isset($validatedData['permissions'])) {
-                $role->syncPermissions($validatedData['permissions']);
+                $spatieRole = SpatieRole::findByName($validatedData['name']);
+                if ($spatieRole) {
+                    $role->syncPermissions($spatieRole->permissions);
+                } else {
+                    return $this->error('Error al actualizar el rol', 'No se encontró el rol', Response::HTTP_NOT_FOUND);
+                }
             }
+
+            $role->save();
 
             return $this->success('Rol actualizado exitosamente', $role, Response::HTTP_OK);
         } catch (\Exception $e) {
@@ -134,7 +151,7 @@ class RoleController extends Controller
     public function show($id)
     {
         try {
-            $role = Role::with('permissions')->findOrFail($id);
+            $role = SpatieRole::with('permissions')->findOrFail($id);
             return $this->success('Rol obtenido exitosamente', $role, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al obtener el rol', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -144,8 +161,12 @@ class RoleController extends Controller
     public function destroy($id)
     {
         try {
-            $role = Role::findOrFail($id);
-            $role->delete();
+            // $role = SpatieRole::findOrFail($id);
+            // $role->delete();
+            // $role->permissions()->detach();
+            // $role->users()->detach();
+            // $role->revokePermissionTo($role->permissions);
+            // $role->removeRole($role->users);
 
             return $this->success('Rol eliminado exitosamente', null, Response::HTTP_NO_CONTENT);
         } catch (\Exception $e) {

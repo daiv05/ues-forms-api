@@ -11,6 +11,7 @@ class TipoPregunta extends Model
 {
     use HasFactory;
     use SoftDeletes;
+    
     protected $table = 'qst_tipos_preguntas';
     protected $fillable = [
         'nombre',
