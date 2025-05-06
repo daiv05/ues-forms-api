@@ -15,7 +15,9 @@ Route::prefix('roles')->group(function () {
 // Usuarios
 Route::prefix('users')->group(function () {
     Route::get('/', [UsuarioController::class, 'index'])->middleware('permissions:usuario_ver')->name('users.index');
-    // Route::post('/', [UsuarioController::class, 'store'])->middleware('permissions:usuario_crear')->name('users.store');
-    // Route::get('/{id}', [UsuarioController::class, 'show'])->middleware('permissions:usuario_ver')->name('users.show');
-    // Route::put('/{id}', [UsuarioController::class, 'update'])->middleware('permissions:usuario_actualizar')->name('users.update');
+    Route::post('/', [UsuarioController::class, 'store'])->middleware('permissions:usuario_crear')->name('users.store');
+    Route::get('/{id}', [UsuarioController::class, 'show'])->middleware('permissions:usuario_ver')->name('users.show');
+    Route::put('/{id}', [UsuarioController::class, 'update'])->middleware('permissions:usuario_actualizar')->name('users.update');
+    Route::put('/update-by-admin/{id}', [UsuarioController::class, 'updateByAdmin'])->middleware('permissions:usuario_actualizar')->name('users.updateByAdmin');
+    
 });

@@ -9,12 +9,7 @@ class Role extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'description', 'activo'];
+    protected $fillable = ['name', 'description', 'activo', 'guard_name'];
 
     protected $table = 'roles';
-
-    public function setNameAttribute($value)
-    {
-        $this->attributes['name'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
-    }
 }

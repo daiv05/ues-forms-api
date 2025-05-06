@@ -35,7 +35,7 @@ class AuthController extends Controller
         try {
             $newToken = Auth::guard('api')->refresh();
             return response()->json([
-                'token' => $newToken,
+                'accessToken' => $newToken,
                 'expires_in' => Auth::guard('api')->factory()->getTTL(),
             ]);
         } catch (JWTException $e) {

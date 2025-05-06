@@ -2,30 +2,32 @@
 
 namespace App\Http\Controllers\Seguridad;
 
+use App\Enums\EstadosEnum;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Registro\Persona;
+use App\Models\Seguridad\SolicitudDesbloqueo;
+use App\Models\Seguridad\SolicitudRegistro;
 use App\Models\Seguridad\User;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use App\Traits\ResponseTrait;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 use App\Traits\PaginationTrait;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class UsuarioController extends Controller
 {
     use ResponseTrait, PaginationTrait;
 
-    // API
     public function index(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
                 'nombre_usuario' => 'string|max:50|regex:/^[a-zA-Z0-9_]+$/',
-                'id_estado' => 'integer|exists:estados,id',
+                'id_estado' => 'integer|exists:ctl_estados,id',
             ], [
                 'nombre_usuario.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
                 'nombre_usuario.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
@@ -38,9 +40,18 @@ class UsuarioController extends Controller
             }
 
             $validatedData = $validator->validated();
-            $query = User::with('persona');
+            // Obtener los usuarios con su persona y estado (columnas especificadas en el modelo)
+            $query = User::select('id', 'username', 'email', 'id_persona', 'id_estado')->with(['persona:id,nombre,apellido', 'estado:id,nombre']);
+            // Aplicar filtros
             if (isset($validatedData['nombre_usuario'])) {
-                $query->where('username', 'like', '%' . $validatedData['nombre_usuario'] . '%');
+                // Buscar por username o nombre de persona
+                $query->where(function ($q) use ($validatedData) {
+                    $q->where('username', 'ilike', '%' . $validatedData['nombre_usuario'] . '%')
+                        ->orWhereHas('persona', function ($q) use ($validatedData) {
+                            $q->where('nombre', 'ilike', '%' . $validatedData['nombre_usuario'] . '%')
+                                ->orWhere('apellido', 'ilike', '%' . $validatedData['nombre_usuario'] . '%');
+                        });
+                });
             }
             if (isset($validatedData['id_estado'])) {
                 $query->where('id_estado', $validatedData['id_estado']);
@@ -61,28 +72,45 @@ class UsuarioController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
+                // User
                 'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
-                'email' => 'required|string|email|max:255|unique:users,email',
-                'password' => 'required|string|min:8|max:255',
-                'nombres' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
-                'apellidos' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'email' => 'required|string|email|max:50|unique:users,email',
+                'password' => 'required|string|min:8|max:50',
+                'id_estado' => [
+                    'required',
+                    Rule::in(EstadosEnum::usuarios())
+                ],
+                // Persona
+                'nombre' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'apellido' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
                 'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9]+$/',
                 'activo' => 'boolean',
-                'id_estado' => 'integer|exists:estados,id',
+                // Roles
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
             ], [
                 'username.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
                 'username.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
                 'username.unique' => 'El nombre/usuario ya existe en la base de datos',
                 'email.required' => 'El correo electrónico es obligatorio',
                 'email.email' => 'El correo electrónico no es válido',
-                'email.max' => 'El correo electrónico no puede exceder los 255 caracteres',
+                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
                 'email.unique' => 'El correo electrónico ya existe en la base de datos',
                 'password.required' => 'La contraseña es obligatoria',
                 'password.min' => 'La contraseña debe tener al menos 8 caracteres',
-                'password.max' => 'La contraseña no puede exceder los 255 caracteres',
-                'id_persona.required' => 'La persona es obligatoria',
-                'id_persona.integer' => 'La persona debe ser un número entero',
-                'id_persona.exists' => 'La persona no existe en la base de datos',
+                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
+                'nombre.regex' => 'Los nombres solo pueden contener letras y espacios',
+                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
+                'apellido.regex' => 'Los apellidos solo pueden contener letras y espacios',
+                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
+                'identificacion.regex' => 'La identificación solo puede contener letras y números',
+                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
+                'activo.boolean' => 'El campo activo debe ser verdadero o falso',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+                'id_estado.required' => 'Debe seleccionar los roles a asignar',
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
             ]);
 
             if ($validator->fails()) {
@@ -91,13 +119,308 @@ class UsuarioController extends Controller
 
             $validatedData = $validator->validated();
 
-            $usuario = User::create([
-                ...$validatedData,
+            DB::beginTransaction();
+
+            $persona = Persona::create([
+                'nombre' => $validatedData['nombre'],
+                'apellido' => $validatedData['apellido'],
+                'identificacion' => $validatedData['identificacion'],
+                'activo' => true,
             ]);
+
+            $usuario = User::create([
+                'username' => $validatedData['username'],
+                'email' => $validatedData['email'],
+                'password' => bcrypt($validatedData['password']),
+                'id_persona' => $persona->id,
+                'id_estado' => $validatedData['id_estado']
+            ]);
+
+            if (isset($validatedData['roles'])) {
+                $usuario->assignRole($validatedData['roles']);
+            }
+
+            DB::commit();
 
             return $this->success('Usuario creado exitosamente', $usuario, Response::HTTP_CREATED);
         } catch (\Exception $e) {
+            DB::rollBack();
             return $this->error('Error al crear el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function show($id)
+    {
+        try {
+            $usuario = User::with(['persona:id,nombre,apellido', 'estado:id,nombre'])->find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            $usuario->getRoleNames();
+            return $this->success('Usuario obtenido exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'username' => 'string|max:50|unique:users,username,' . $id . '|regex:/^[a-zA-Z0-9_]+$/',
+                'email' => 'string|email|max:50|unique:users,email,' . $id,
+                'password' => 'string|min:8|max:50',
+                'nombre' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'apellido' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9]+$/',
+                'activo' => 'boolean',
+                'id_estado' => Rule::in(EstadosEnum::usuarios()),
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
+            ], [
+                'username.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
+                'username.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
+                'username.unique' => 'El nombre/usuario ya existe en la base de datos',
+                'email.required' => 'El correo electrónico es obligatorio',
+                'email.email' => 'El correo electrónico no es válido',
+                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
+                'email.unique' => 'El correo electrónico ya existe en la base de datos',
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
+                'nombre.regex' => 'Los nombres solo pueden contener letras y espacios',
+                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
+                'apellido.regex' => 'Los apellidos solo pueden contener letras y espacios',
+                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
+                'identificacion.regex' => 'La identificación solo puede contener letras y números',
+                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
+                'activo.boolean' => 'El campo activo debe ser verdadero o falso',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
+            ]);
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $validatedData = $validator->validated();
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            DB::beginTransaction();
+            if (isset($validatedData['nombre'])) {
+                $usuario->persona->nombre = $validatedData['nombre'];
+            }
+            if (isset($validatedData['apellido'])) {
+                $usuario->persona->apellido = $validatedData['apellido'];
+            }
+            if (isset($validatedData['identificacion'])) {
+                $usuario->persona->identificacion = $validatedData['identificacion'];
+            }
+            if (isset($validatedData['username'])) {
+                $usuario->username = $validatedData['username'];
+            }
+            if (isset($validatedData['email'])) {
+                $usuario->email = $validatedData['email'];
+            }
+            if (isset($validatedData['password'])) {
+                $usuario->password = bcrypt($validatedData['password']);
+            }
+            if (isset($validatedData['id_estado'])) {
+                $usuario->id_estado = $validatedData['id_estado'];
+            }
+            if (isset($validatedData['activo'])) {
+                $usuario->activo = $validatedData['activo'];
+            }
+            if (isset($validatedData['roles'])) {
+                $usuario->syncRoles($validatedData['roles']);
+            }
+            $usuario->persona->save();
+            $usuario->save();
+            DB::commit();
+            return $this->success('Usuario actualizado exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al actualizar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            $usuario->delete();
+            return $this->success('Usuario eliminado exitosamente', null, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al eliminar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function updateByAdmin(Request $request, $id)
+    {
+        // Acepta actualizar estado y roles asignados
+        try {
+            $validator = Validator::make($request->all(), [
+                'id_estado' => Rule::in(EstadosEnum::usuarios()),
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
+            ], [
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            DB::beginTransaction();
+            if (isset($validatedData['id_estado'])) {
+                $usuario->id_estado = $validatedData['id_estado'];
+            }
+            if (isset($validatedData['roles'])) {
+                $usuario->syncRoles($validatedData['roles']);
+            }
+            $usuario->save();
+            DB::commit();
+            return $this->success('Usuario actualizado exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al actualizar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function requestRegistration(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
+                'email' => 'required|string|email|max:50|unique:users,email',
+                'password' => 'required|string|min:8|max:50',
+                'nombre' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'apellido' => 'string|max:50|regex:/^[a-zA-Z\s]+$/',
+                'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9]+$/',
+                'justificacion_solicitud' => 'string|max:255',
+            ], [
+                'username.regex' => 'El usuario solo puede contener letras, números y guiones bajos',
+                'username.max' => 'El usuario no puede exceder los 50 caracteres',
+                'username.unique' => 'Ya existe un usuario registrado con este /usuario',
+                'email.required' => 'El correo electrónico es obligatorio',
+                'email.email' => 'El correo electrónico no es válido',
+                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
+                'email.unique' => 'Ya existe un usuario registrado con este correo electrónico',
+                'password.required' => 'La contraseña es obligatoria',
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
+                'nombre.regex' => 'Los nombres solo pueden contener letras y espacios',
+                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
+                'apellido.regex' => 'Los apellidos solo pueden contener letras y espacios',
+                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
+                'identificacion.regex' => 'La identificación solo puede contener letras y números',
+                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
+                'justificacion_solicitud.max' => 'La justificación de la solicitud no puede exceder los 255 caracteres',
+                'justificacion_solicitud.string' => 'La justificación de la solicitud debe ser una cadena de texto',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+
+            DB::beginTransaction();
+
+            $persona = Persona::create([
+                'nombre' => $validatedData['nombre'],
+                'apellido' => $validatedData['apellido'],
+                'identificacion' => $validatedData['identificacion'],
+                'activo' => true,
+            ]);
+
+            $usuario = User::create([
+                'username' => $validatedData['username'],
+                'email' => $validatedData['email'],
+                'password' => bcrypt($validatedData['password']),
+                'id_persona' => $persona->id,
+                'id_estado' => EstadosEnum::INACTIVO->value,
+                'activo' => false
+            ]);
+
+            $usuario->markEmailAsVerified();
+
+            $solicitud = SolicitudRegistro::create([
+                'justificacion_solicitud' => $validatedData['justificacion_solicitud'],
+                'id_usuario' => $usuario->id,
+                'id_estado' => EstadosEnum::PENDIENTE->value,
+            ]);
+
+            DB::commit();
+
+            return $this->success('Solicitud generada', $solicitud, Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al solicitar registro', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function requestUnlocking(Request $request)
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'justificacion_solicitud' => 'string|max:255',
+            ], [
+                'justificacion_solicitud.max' => 'La justificación de la solicitud no puede exceder los 255 caracteres',
+                'justificacion_solicitud.string' => 'La justificación de la solicitud debe ser una cadena de texto',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+
+            DB::beginTransaction();
+
+            $usuario = Auth::user();
+
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario', Response::HTTP_NOT_FOUND);
+            }
+
+            if ($usuario->id_estado !== EstadosEnum::BLOQUEADO->value) {
+                return $this->error('Estado de usuario no válido', 'El usuario no está bloqueado', Response::HTTP_BAD_REQUEST);
+            }
+
+            // Verificar si ya existe una solicitud de desbloqueo pendiente
+            $existingRequest = SolicitudDesbloqueo::where('id_usuario', $usuario->id)
+                ->where('id_estado', EstadosEnum::PENDIENTE->value)
+                ->first();
+            if ($existingRequest) {
+                return $this->error('Solicitud ya existente', 'Ya tienes una solicitud de desbloqueo pendiente', Response::HTTP_BAD_REQUEST);
+            }
+
+            $solicitud = SolicitudDesbloqueo::create([
+                'justificacion_solicitud' => $validatedData['justificacion_solicitud'],
+                'id_usuario' => $usuario->id,
+                'id_estado' => EstadosEnum::PENDIENTE->value,
+            ]);
+
+            DB::commit();
+
+            return $this->success('Solicitud generada', $solicitud, Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al solicitar desbloqueo', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }
