@@ -68,5 +68,6 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
         'permissions' => \App\Http\Middleware\ValidatePermissions::class,
+        'validate.user' => \App\Http\Middleware\ValidateUser::class,
     ];
 }
