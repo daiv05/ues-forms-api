@@ -6,7 +6,7 @@
         <p>
             Gracias por registrarte.
             Tu código de verificación es:
-            <strong>{{ $code }}</strong>
+            <strong>{{ $verificationCode }}</strong>
         </p>
         <p>
             Si no haz solicitado ningún código puedes ignorar este correo.
