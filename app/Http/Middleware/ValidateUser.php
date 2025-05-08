@@ -39,12 +39,12 @@ class ValidateUser
         // Posee al menos un rol activo
         $validRole = 0;
         $user->roles->each(function ($rol) use (&$validRole) {
-            if ($rol->activo === 1) {
+            if ($rol->activo === true) {
                 $validRole++;
             }
         });
 
-        if (! $validRole) {
+        if (!$validRole) {
             $message = 'El usuario no posee un rol activo dentro del sistema';
             Auth::guard('api')->logout();
             return $this->error('Error de autenticación', $message, Response::HTTP_UNAUTHORIZED);
