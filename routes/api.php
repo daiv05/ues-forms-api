@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Seguridad\Auth\AuthController;
 use Orion\Facades\Orion;
 use App\Http\Controllers\Catalogo\TiposPreguntasController;
+use App\Http\Controllers\Seguridad\Auth\AuthUnlockingController;
 use App\Http\Controllers\Seguridad\UsuarioController;
 
 Route::middleware('auth:api', 'validate.user')->group(function () {
@@ -18,7 +19,7 @@ Route::middleware('auth:api', 'validate.user')->group(function () {
 });
 
 Route::prefix('auth')->middleware('auth:api')->group(function () {
-    Route::post('/request-unlocking', [UsuarioController::class, 'requestUnlocking'])->name('auth.request-unlocking');
+    Route::post('/request-unlocking', [AuthUnlockingController::class, 'requestUnlocking'])->name('auth.request-unlocking');
 });
 
 require __DIR__ . '/auth/_base.php';

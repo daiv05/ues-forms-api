@@ -76,11 +76,6 @@ class User extends Authenticatable implements JWTSubject
         $this->notify(new SendTwoFactorCode($code));
     }
 
-    public function setUsernameAttribute($value)
-    {
-        $this->attributes['username'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
-    }
-
     public function getRoles()
     {
         return $this->roles();

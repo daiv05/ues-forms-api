@@ -18,16 +18,6 @@ class Persona extends Model
         'apellido',
         'identificacion'
     ];
-
-    public function setNombreAttribute($value)
-    {
-        $this->attributes['nombre'] =strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
-    }
-
-    public function setApellidoAttribute($value)
-    {
-        $this->attributes['apellido'] =strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
-    }
     
     public function usuario() : HasOne
     {
