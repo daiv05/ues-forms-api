@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('auth_verified_email', function (Blueprint $table) {
             $table->id();
-            $table->string('email')->unique();
+            $table->string('email');
             $table->string('verification_code');
             $table->timestamp('expiration_code')->nullable();
             $table->timestamp('verified_at')->nullable();
