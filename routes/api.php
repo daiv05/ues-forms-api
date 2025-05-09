@@ -1,25 +1,37 @@
 <?php
 
-use App\Http\Controllers\Catalogo\EstadosController;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Seguridad\Auth\AuthController;
-use Orion\Facades\Orion;
-use App\Http\Controllers\Catalogo\TiposPreguntasController;
 use App\Http\Controllers\Seguridad\Auth\AuthUnlockingController;
-use App\Http\Controllers\Seguridad\UsuarioController;
 
-Route::middleware('auth:api', 'validate.user')->group(function () {
-    Route::get('/me', [AuthController::class, 'me']);
+/**
+ * AUTH MIDDLEWARE
+ * Rutas con validación de token y
+ * autenticación de usuario.
+ */
+Route::middleware('auth:api')->group(function () {
 
+    Route::prefix('auth')->group(function () {
+        Route::prefix('solicitudes-desbloqueo')->group(function () {
+            Route::post('/request-unlocking', [AuthUnlockingController::class, 'requestUnlocking'])->name('auth.request-unlocking');
+        });
+    });
 
-    Route::prefix('catalogo')->group(function () {
-        Orion::resource('/tipos-preguntas', TiposPreguntasController::class)->only(['index', 'show', 'store', 'update', 'destroy']);
-        Route::get('/estados', [EstadosController::class, 'index'])->name('estados.index');
+    /**
+     * VALID USER MIDDLEWARE
+     * Rutas con validación de token y
+     * restricción de acceso a usuarios validos.
+     */
+    Route::middleware('validate.user')->group(function () {
+
+        // Seguridad y autenticación
+        Route::prefix('auth')->group(function () {
+            require __DIR__ . '/auth/users.php';
+            require __DIR__ . '/auth/authentication.php';
+        });
+
+        // Catalogos
+        Route::prefix('catalogo')->group(function () {
+            require __DIR__ . '/catalogues/catalogs.php';
+        });
     });
 });
-
-Route::prefix('auth')->middleware('auth:api')->group(function () {
-    Route::post('/request-unlocking', [AuthUnlockingController::class, 'requestUnlocking'])->name('auth.request-unlocking');
-});
-
-require __DIR__ . '/auth/_base.php';
