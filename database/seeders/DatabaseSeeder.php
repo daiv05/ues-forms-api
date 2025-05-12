@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         $this->call(TipoPreguntaSeeder::class);
         $this->call(ClasePreguntaSeeder::class);
         $this->call(CategoriaPreguntaSeeder::class);
+        $this->call(GrupoMetaSeeder::class);
     }
 
 }
