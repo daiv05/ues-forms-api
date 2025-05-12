@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Seguridad\Auth\AuthRegistrationController;
+use App\Http\Controllers\Seguridad\Auth\AuthUnlockingController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Seguridad\RoleController;
 use App\Http\Controllers\Seguridad\UsuarioController;
@@ -25,7 +26,13 @@ Route::prefix('users')->group(function () {
 // Solicitudes de registro
 Route::prefix('solicitudes-registro')->group(function () {
     Route::get('/', [AuthRegistrationController::class, 'index'])->middleware('permissions:solicitud_ver')->name('solicitudes-registro.index');
-    // Route::post('/', [UsuarioController::class, 'store'])->middleware('permissions:usuario_crear')->name('solicitudes-registro.store');
-    // Route::get('/{id}', [UsuarioController::class, 'show'])->middleware('permissions:usuario_ver')->name('solicitudes-registro.show');
-    // Route::put('/{id}', [UsuarioController::class, 'update'])->middleware('permissions:usuario_actualizar')->name('solicitudes-registro.update');
+    Route::get('/{id}', [AuthRegistrationController::class, 'show'])->middleware('permissions:solicitud_ver')->name('solicitudes-registro.show');
+    Route::put('/{id}', [AuthRegistrationController::class, 'update'])->middleware('permissions:solicitud_actualizar')->name('solicitudes-registro.update');
+});
+
+// Solicitudes de desbloqueo
+Route::prefix('solicitudes-desbloqueo')->group(function () {
+    Route::get('/', [AuthUnlockingController::class, 'index'])->middleware('permissions:solicitud_desbloqueo_ver')->name('solicitudes-registro.index');
+    Route::get('/{id}', [AuthUnlockingController::class, 'show'])->middleware('permissions:solicitud_desbloqueo_ver')->name('solicitudes-registro.show');
+    Route::put('/{id}', [AuthUnlockingController::class, 'update'])->middleware('permissions:solicitud_desbloqueo_actualizar')->name('solicitudes-registro.update');
 });

@@ -5,21 +5,19 @@ namespace App\Http\Controllers\Seguridad\Auth;
 use App\Enums\EstadosEnum;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
-use App\Mail\RegistrationRequestResponseMail;
-use App\Models\Registro\Persona;
-use App\Models\Seguridad\AuthVerifiedEmail;
-use App\Models\Seguridad\SolicitudRegistro;
+use App\Mail\UnlockRequestResponseMail;
+use App\Models\Seguridad\SolicitudDesbloqueo;
 use App\Models\Seguridad\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
 use App\Traits\ResponseTrait;
 use App\Traits\PaginationTrait;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\Rule;
 
-class AuthRegistrationController extends Controller
+class AuthUnlockingController extends Controller
 {
     use ResponseTrait, PaginationTrait;
 
@@ -41,8 +39,8 @@ class AuthRegistrationController extends Controller
             }
 
             $validatedData = $validator->validated();
-            // Obtener las solicitudes de registro con sus usuarios y personas
-            $query = SolicitudRegistro::with(['usuario', 'usuario.persona', 'estado']);
+            // Obtener las solicitudes de desbloqueo con sus usuarios y personas
+            $query = SolicitudDesbloqueo::with(['usuario', 'usuario.persona', 'estado']);
             // Aplicar filtros
             if (isset($validatedData['nombre_usuario'])) {
                 // Buscar por username o nombre de persona
@@ -56,9 +54,11 @@ class AuthRegistrationController extends Controller
                         });
                 });
             }
+
             if (isset($validatedData['id_estado'])) {
                 $query->where('id_estado', $validatedData['id_estado']);
             }
+
             $solicitudes = $query->get();
 
             $solicitudes->each(function ($solicitud) {
@@ -73,41 +73,18 @@ class AuthRegistrationController extends Controller
                 return $this->success('Solicitudes obtenidas exitosamente', $solicitudes, Response::HTTP_OK);
             }
         } catch (\Exception $e) {
-            return $this->error('Error al obtener las solicitudes de registro', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->error('Error al obtener las solicitudes de desbloqueo', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    public function requestRegistration(Request $request)
+    public function requestUnlocking(Request $request)
     {
         try {
             $validator = Validator::make($request->all(), [
-                'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
-                'email' => 'required|string|email|max:50|unique:users,email',
-                'password' => 'required|string|min:8|max:50',
-                'nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
-                'apellido' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
-                'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9\-]+$/',
-                'justificacion_solicitud' => 'string|max:255|regex:/^[a-zA-Z0-9\sáéíóúñÁÉÍÓÚÑ.,;:()\-]+$/',
+                'justificacion_solicitud' => 'string|max:255',
             ], [
-                'username.regex' => 'El usuario solo puede contener letras, números y guiones bajos',
-                'username.max' => 'El usuario no puede exceder los 50 caracteres',
-                'username.unique' => 'Ya existe un usuario registrado con este /usuario',
-                'email.required' => 'El correo electrónico es obligatorio',
-                'email.email' => 'El correo electrónico no es válido',
-                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
-                'email.unique' => 'Ya existe un usuario registrado con este correo electrónico',
-                'password.required' => 'La contraseña es obligatoria',
-                'password.min' => 'La contraseña debe tener al menos 8 caracteres',
-                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
-                'nombre.regex' => 'Caracteres no válidos en el nombre',
-                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
-                'apellido.regex' => 'Caracteres no válidos en el apellido',
-                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
-                'identificacion.regex' => 'La identificación solo puede contener letras, números y guiones',
-                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
                 'justificacion_solicitud.max' => 'La justificación de la solicitud no puede exceder los 255 caracteres',
                 'justificacion_solicitud.string' => 'La justificación de la solicitud debe ser una cadena de texto',
-                'justificacion_solicitud.regex' => 'Caracteres no válidos en la justificación de la solicitud',
             ]);
 
             if ($validator->fails()) {
@@ -116,34 +93,27 @@ class AuthRegistrationController extends Controller
 
             $validatedData = $validator->validated();
 
-            // Verificar si el correo electrónico ya está verificado
-            $verifiedEmail = AuthVerifiedEmail::where('email', $validatedData['email'])->first();
-
-            if (!$verifiedEmail) {
-                return $this->error('Correo electrónico no verificado', 'El correo electrónico no está verificado', Response::HTTP_BAD_REQUEST);
-            }
-
             DB::beginTransaction();
 
-            $persona = Persona::create([
-                'nombre' => $validatedData['nombre'],
-                'apellido' => $validatedData['apellido'],
-                'identificacion' => $validatedData['identificacion'],
-                'activo' => true,
-            ]);
+            $usuario = Auth::user();
 
-            $usuario = User::create([
-                'username' => $validatedData['username'],
-                'email' => $validatedData['email'],
-                'password' => bcrypt($validatedData['password']),
-                'id_persona' => $persona->id,
-                'id_estado' => EstadosEnum::INACTIVO->value,
-                'activo' => false
-            ]);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario', Response::HTTP_NOT_FOUND);
+            }
 
-            $usuario->markEmailAsVerified();
+            if ($usuario->id_estado !== EstadosEnum::BLOQUEADO->value) {
+                return $this->error('Estado de usuario no válido', 'El usuario no está bloqueado', Response::HTTP_BAD_REQUEST);
+            }
 
-            $solicitud = SolicitudRegistro::create([
+            // Verificar si ya existe una solicitud de desbloqueo pendiente
+            $existingRequest = SolicitudDesbloqueo::where('id_usuario', $usuario->id)
+                ->where('id_estado', EstadosEnum::PENDIENTE->value)
+                ->first();
+            if ($existingRequest) {
+                return $this->error('Solicitud ya existente', 'Ya tienes una solicitud de desbloqueo pendiente', Response::HTTP_BAD_REQUEST);
+            }
+
+            $solicitud = SolicitudDesbloqueo::create([
                 'justificacion_solicitud' => $validatedData['justificacion_solicitud'],
                 'id_usuario' => $usuario->id,
                 'id_estado' => EstadosEnum::PENDIENTE->value,
@@ -151,42 +121,50 @@ class AuthRegistrationController extends Controller
 
             DB::commit();
 
-            return $this->success('Solicitud registrada', $solicitud, Response::HTTP_CREATED);
+            return $this->success('Solicitud generada', $solicitud, Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error('Error al solicitar registro', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->error('Error al solicitar desbloqueo', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     public function show($id)
     {
         try {
-            $solicitud = SolicitudRegistro::with(['usuario', 'usuario.persona', 'estado'])->findOrFail($id);
+            $solicitud = SolicitudDesbloqueo::with(['usuario', 'usuario.persona', 'estado'])->find($id);
+
+            if (!$solicitud) {
+                return $this->error('Solicitud no encontrada', 'No se encontró la solicitud de desbloqueo', Response::HTTP_NOT_FOUND);
+            }
+
             $solicitud->usuario->persona->makeHidden(['updated_at']);
             $solicitud->usuario->makeHidden(['password', 'remember_token', 'updated_at']);
 
             return $this->success('Solicitud obtenida exitosamente', $solicitud, Response::HTTP_OK);
         } catch (\Exception $e) {
-            return $this->error('Error al obtener la solicitud de registro', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->error('Error al obtener la solicitud de desbloqueo', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    public function update($id, Request $request)
+    public function update(Request $request, $id)
     {
         try {
             $validator = Validator::make($request->all(), [
                 'id_estado' => [
                     'required',
                     'integer',
-                    Rule::in(EstadosEnum::solicitudes()),
+                    'exists:ctl_estados,id',
+                    'in:' . EstadosEnum::APROBADO->value . ',' . EstadosEnum::RECHAZADO->value,
                 ],
                 'justificacion_rechazo' => 'string|max:255|regex:/^[a-zA-Z0-9\sáéíóúñÁÉÍÓÚÑ.,;:()\-]+$/',
             ], [
-                'id_estado.required' => 'El estado es obligatorio',
+                'id_estado.required' => 'El estado es requerido',
+                'id_estado.exists' => 'El estado debe existir en la base de datos',
                 'id_estado.integer' => 'El estado debe ser un número entero',
-                'id_estado.in' => 'El estado no es válido',
-                'justificacion_rechazo.regex' => 'Caracteres no válidos en la justificación de rechazo',
-                'justificacion_rechazo.max' => 'La justificación de rechazo no puede exceder los 255 caracteres',
+                'id_estado.in' => 'El estado seleccionado no es válido',
+                'justificacion_rechazo.regex' => 'Caracteres no válidos en la justificación de la respuesta',
+                'justificacion_rechazo.max' => 'La justificación de la respuesta no puede exceder los 255 caracteres',
+                'justificacion_rechazo.string' => 'La justificación de la respuesta debe ser una cadena de texto',
             ]);
 
             if ($request['id_estado'] === EstadosEnum::RECHAZADO->value) {
@@ -203,23 +181,36 @@ class AuthRegistrationController extends Controller
 
             DB::beginTransaction();
 
-            $solicitud = SolicitudRegistro::findOrFail($id);
+            // Obtener la solicitud de desbloqueo
+            $solicitud = SolicitudDesbloqueo::with(['usuario'])->find($id);
 
-            // Verificar si la solicitud ya fue aprobada o rechazada
+            if (!$solicitud) {
+                return $this->error('Solicitud no encontrada', 'No se encontró la solicitud de desbloqueo', Response::HTTP_NOT_FOUND);
+            }
+
+            // Verificar si el estado es válido para la actualización
             if ($solicitud->id_estado !== EstadosEnum::PENDIENTE->value) {
-                return $this->error('Solicitud ya procesada', 'La solicitud ya fue aprobada o rechazada', Response::HTTP_BAD_REQUEST);
+                return $this->error('Estado no válido', 'La solicitud ya ha sido procesada', Response::HTTP_BAD_REQUEST);
+            }
+
+            $usuario = User::find($solicitud->id_usuario);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario asociado a la solicitud', Response::HTTP_NOT_FOUND);
+            }
+
+            // Verificar si el usuario está bloqueado
+            if ($usuario->id_estado !== EstadosEnum::BLOQUEADO->value) {
+                return $this->error('Estado de usuario no válido', 'El usuario no está bloqueado', Response::HTTP_BAD_REQUEST);
             }
 
             $aprobado = $validatedData['id_estado'] === EstadosEnum::APROBADO->value;
-
-            $usuario = User::findOrFail($solicitud->id_usuario);
 
             if ($aprobado) {
                 $solicitud->update([
                     'id_estado' => $validatedData['id_estado'],
                 ]);
-                $usuario->update(['activo' => true, 'id_estado' => EstadosEnum::ACTIVO->value]);
-                Mail::to($usuario->email)->send(new RegistrationRequestResponseMail([
+                $usuario->update(['id_estado' => EstadosEnum::ACTIVO->value]);
+                Mail::to($usuario->email)->send(new UnlockRequestResponseMail([
                     'approved' => true,
                     'reason' => null,
                 ]));
@@ -228,7 +219,7 @@ class AuthRegistrationController extends Controller
                     'id_estado' => $validatedData['id_estado'],
                     'justificacion_rechazo' => $validatedData['justificacion_rechazo'] ?? null,
                 ]);
-                Mail::to($usuario->email)->send(new RegistrationRequestResponseMail([
+                Mail::to($usuario->email)->send(new UnlockRequestResponseMail([
                     'approved' => false,
                     'reason' => $validatedData['justificacion_rechazo'] ?? null,
                 ]));
@@ -239,7 +230,7 @@ class AuthRegistrationController extends Controller
             return $this->success('Solicitud actualizada exitosamente', $solicitud, Response::HTTP_OK);
         } catch (\Exception $e) {
             DB::rollBack();
-            return $this->error('Error al actualizar la solicitud de registro', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->error('Error al actualizar la solicitud de desbloqueo', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

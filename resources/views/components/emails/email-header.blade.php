@@ -5,5 +5,5 @@
 
 <div class="header text-center">
     <img src="{{ $logoSrc }}" class="h-36" alt="logo"  />
-    <h2 class="text-xl font-semibold text-gray-800">{{ $title }}</h2>
+    <h2 class="color-incompleto">{{ $title }}</h2>
 </div>

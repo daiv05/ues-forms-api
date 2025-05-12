@@ -142,18 +142,30 @@
             font-size: 0.875rem;
         }
 
-        .color-completado {
+        .block-completado {
             background-color: #3F6212;
             color: #fbfff6;
         }
 
-        .color-finalizado {
+        .block-finalizado {
             background-color: #d1fae5;
             color: #065f46;
         }
 
-        .color-incompleto {
+        .block-incompleto {
             background-color: #ffedd5;
+            color: #9a3412;
+        }
+
+        .color-completado {
+            color: #fbfff6;
+        }
+
+        .color-finalizado {
+            color: #065f46;
+        }
+
+        .color-incompleto {
             color: #9a3412;
         }
 
@@ -183,6 +195,28 @@
             justify-content: center;
             justify-self: center;
             justify-items: center;
+        }
+
+        .my-8 {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        .mx-8 {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+
+        .font-bold {
+            font-weight: bold;
+        }
+
+        .text-sm {
+            font-size: 0.875rem;
+        }
+        
+        .text-xs {
+            font-size: 0.75rem;
         }
     </style>
 </head>
