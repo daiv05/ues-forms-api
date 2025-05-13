@@ -22,25 +22,9 @@ class GrupoMetaController extends Controller
         ];
     }
 
-    public function searchableBy(): array
-    {
-        return [
-            'nombre',
-            'descripcion',
-        ];
-    }
-
-    public function sortableBy(): array
-    {
-        return [
-            'nombre',
-            'estado',
-        ];
-    }
-
     public function limit(): int
     {
-        return 5;
+        return 10;
     }
 
     protected function buildIndexFetchQuery(Request $request, array $requestedRelations): Builder
@@ -48,6 +32,11 @@ class GrupoMetaController extends Controller
         $query = parent::buildIndexFetchQuery($request, $requestedRelations);
         $query->where('id_usuario', auth()->user()->id);
         return $query;
+    }
+
+    protected function beforeStore(Request $request, $entity): void
+    {
+        $entity->id_usuario = auth()->user()->id;
     }
 
 
