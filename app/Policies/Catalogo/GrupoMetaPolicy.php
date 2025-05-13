@@ -63,4 +63,9 @@ class GrupoMetaPolicy
     {
         return true;
     }
+
+    public function __construct()
+    {
+
+    }
 }

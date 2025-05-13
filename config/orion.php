@@ -33,7 +33,7 @@ return [
         'enabled' => false,
     ],
     'search' => [
-        'case_sensitive' => true, // TODO: set to "false" by default in 3.0 release
+        'case_sensitive' => false, // TODO: set to "false" by default in 3.0 release
         /*
          |--------------------------------------------------------------------------
          | Max Nested Depth
