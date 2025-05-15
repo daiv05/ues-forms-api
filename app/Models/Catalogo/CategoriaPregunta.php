@@ -18,6 +18,7 @@ class CategoriaPregunta extends Model
     protected $table = 'qst_categorias_preguntas';
     protected $fillable = [
         'id_clase_pregunta',
+        'codigo',
         'nombre',
         'descripcion',
         'max_text_length',

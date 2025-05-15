@@ -2,6 +2,7 @@
 
 namespace App\Models\Encuesta;
 
+use App\Models\Catalogo\Estado;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -18,10 +19,11 @@ class Encuesta extends Model
     protected $fillable = [
         'id_usuario',
         'id_grupo_meta',
+        'id_estado',
         'codigo',
         'titulo',
         'objetivo',
-        'instrucciones',
+        'descripcion',
         'fecha_publicacion',
     ];
 
@@ -38,6 +40,11 @@ class Encuesta extends Model
     public function preguntas(): HasMany
     {
         return $this->hasMany(Pregunta::class, 'id_encuesta');
+    }
+
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(Estado::class, 'id_estado');
     }
 
 }

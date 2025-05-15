@@ -14,12 +14,13 @@ return new class extends Migration
         Schema::create('srvy_encuestas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_usuario')->constrained('users');
-            $table->foreignId('id_grupo_meta')->constrained('srvy_grupos_metas');
-            $table->string('codigo', 50);
+            $table->foreignId('id_grupo_meta')->nullable()->constrained('srvy_grupos_metas');
+            $table->foreignId('id_estado')->constrained('ctl_estados');
+            $table->string('codigo', 50)->unique();
             $table->string('titulo', 50);
-            $table->string('objetivo', 50);
-            $table->string('instrucciones', 255);
-            $table->date('fecha_publicacion');
+            $table->text('objetivo');
+            $table->text('descripcion');
+            $table->date('fecha_publicacion')->nullable();
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
         });

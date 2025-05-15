@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('id_usuario')->constrained('users');
             $table->string('nombre');
             $table->text('descripcion');
-            $table->boolean('estado')->default(true);
+            $table->boolean('activo')->default(true);
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
         });
