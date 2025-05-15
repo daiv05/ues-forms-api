@@ -13,52 +13,60 @@ class CategoriaPreguntaSeeder extends Seeder
     public function run(): void
     {
         $categoriasPreguntas = [
-            [ 
-                'nombre' => 'short', 
-                'descripcion' => 'Texto corto', 
+            [
+                'codigo' => 'short_text',
+                'nombre' => 'Texto corto',
+                'descripcion' => 'Preguntas con respuestas de texto corto',
                 'id_clase_pregunta' => 1,
                 'max_text_length' => 25,
             ],
-            [ 
-                'nombre' => 'long', 
-                'descripcion' => 'Texto largo', 
+            [
+                'codigo' => 'long_text',
+                'nombre' => 'Texto largo',
+                'descripcion' => 'Preguntas con respuestas de texto largo',
                 'id_clase_pregunta' => 1,
                 'max_text_length' => 150,
             ],
-            [ 
-                'nombre' => 'multiple', 
-                'descripcion' => 'Selección múltiple', 
+            [
+                'codigo' => 'multiple_choice',
+                'nombre' => 'Selección múltiple',
+                'descripcion' => 'Preguntas con selección múltiple de opciones',
                 'id_clase_pregunta' => 2,
                 'max_seleccion_items' => 10,
                 'permite_otros' => true,
             ],
-            [  
-                'nombre' => 'single', 
-                'descripcion' => 'Selección única', 
+            [
+                'codigo' => 'single_choice',
+                'nombre' => 'Selección única',
+                'descripcion' => 'Preguntas con selección única de opciones',
                 'id_clase_pregunta' => 2,
                 'max_seleccion_items' => 1,
                 'permite_otros' => true,
             ],
-            [ 
-                'nombre' => 'order', 
-                'descripcion' => 'Orden', 
+            [
+                'codigo' => 'ranking',
+                'nombre' => 'Ordenamiento/Ranking',
+                'descripcion' => 'Preguntas con ordenamiento de opciones',
                 'id_clase_pregunta' => 3,
                 'max_seleccion_items' => 10,
             ],
-            [ 
-                'nombre' => 'numeric', 
-                'descripcion' => 'Escala numérica', 
+            [
+                'codigo' => 'numeric_scale',
+                'nombre' => 'Escala numérica',
+                'descripcion' => 'Preguntas con escala numérica',
                 'id_clase_pregunta' => 4,
                 'es_escala_numerica' => true,
             ],
-            [ 
-                'nombre' => 'likert', 
-                'descripcion' => 'Escala / Escala Likert', 
+            [
+                'codigo' => 'escale_likert',
+                'nombre' => 'Escala/Escala Likert',
+                'descripcion' => 'Preguntas de escala o Likert',
                 'id_clase_pregunta' => 4
             ],
-            [  
-                'nombre' => 'truefalse', 
-                'descripcion' => 'Falso / Verdadero', 
+            [
+                'codigo' => 'true_false',
+                'nombre' => 'Falso/Verdadero',
+                'descripcion' => 'Preguntas de verdadero o falso',
                 'id_clase_pregunta' => 5,
                 'es_booleano' => true,
             ]

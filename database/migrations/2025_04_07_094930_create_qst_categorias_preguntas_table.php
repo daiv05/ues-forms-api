@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('qst_categorias_preguntas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_clase_pregunta')->constrained('qst_clases_preguntas');
+            $table->string('codigo', 50);
             $table->string('nombre', 50);
             $table->string('descripcion', 50);
             $table->integer('max_text_length')->default(0);
