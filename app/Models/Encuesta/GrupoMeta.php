@@ -19,7 +19,7 @@ class GrupoMeta extends Model
         'id_usuario',
         'nombre',
         'descripcion',
-        'estado',
+        'activo',
     ];
     protected $hidden = [
         'updated_at',

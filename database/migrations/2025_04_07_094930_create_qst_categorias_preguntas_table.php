@@ -22,6 +22,7 @@ return new class extends Migration
             $table->boolean('es_escala_numerica')->default(false);
             $table->boolean('es_booleano')->default(false);
             $table->boolean('permite_otros')->default(false);
+            $table->boolean('activo')->default(true);
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
         });

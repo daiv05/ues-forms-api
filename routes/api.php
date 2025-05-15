@@ -33,5 +33,10 @@ Route::middleware('auth:api')->group(function () {
         Route::prefix('catalogo')->group(function () {
             require __DIR__ . '/catalogues/catalogs.php';
         });
+
+        // Encuestas
+        Route::prefix('encuestas')->group(function () {
+            require __DIR__ . '/surveys/survy.php';
+        });
     });
 });
