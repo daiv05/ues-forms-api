@@ -18,7 +18,7 @@ class GrupoMetaController extends Controller
     {
         return [
             'nombre',
-            'estado',
+            'activo',
         ];
     }
 
@@ -27,10 +27,17 @@ class GrupoMetaController extends Controller
         return 10;
     }
 
+    protected function runIndexFetchQuery(Request $request, Builder $query, int $paginationLimit)
+    {
+        if ($request->pagination == 'false') return $query->get();
+        return $query->paginate($paginationLimit);
+    }
+
     protected function buildIndexFetchQuery(Request $request, array $requestedRelations): Builder
     {
         $query = parent::buildIndexFetchQuery($request, $requestedRelations);
-        $query->where('id_usuario', auth()->user()->id);
+        $query->where('id_usuario', auth()->user()->id)
+              ->orderBy('nombre', 'asc');
         return $query;
     }
 
