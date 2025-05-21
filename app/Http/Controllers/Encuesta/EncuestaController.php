@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Encuesta;
 
+use App\Enums\CategoriaPreguntasEnum;
 use App\Enums\EstadosEnum;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
@@ -239,38 +240,51 @@ class EncuestaController extends Controller
     public function updateForm(Request $request, $id)
     {
         try {
-
             $validator = Validator::make($request->all(), [
                 'formulario' => 'array|required',
-                'formulario.*.id_categoria_pregunta' => 'required|integer|exists:qst_categorias_preguntas,id',
-                'formulario.*.descripcion_pregunta' => 'required|string|max:50',
+                'formulario.*.type' => [
+                    'required',
+                    'string',
+                    Rule::in(array_map(fn($item) => $item->value, CategoriaPreguntasEnum::cases())),
+                ],
+                'formulario.*.shortQuestion' => 'required|string|max:50',
                 'formulario.*.false_txt' => 'string|max:50',
                 'formulario.*.true_txt' => 'string|max:50',
-                'formulario.*.min_val' => 'integer|min:0|max:100',
-                'formulario.*.max_val' => 'integer|min:0|max:100',
-                'formulario.*.opciones' => 'array',
-                'formulario.*.opciones.*.opcion' => 'string|max:50',
-                'formulario.*.opciones.*.orden_inicial' => 'integer|min:0|max:100',
+                // 'formulario.*.rangeFrom' => 'integer|min:0|max:100',
+                // 'formulario.*.rangeTo' => 'integer|min:0|max:100',
+                'formulario.*.rangeFrom' => 'string',
+                'formulario.*.rangeTo' => 'string',
+                'formulario.*.options' => 'array',
+                'formulario.*.options.*' => 'string|max:50',
             ], [
                 'formulario.required' => 'El formulario es obligatorio',
                 'formulario.array' => 'El formulario debe ser un arreglo',
-                'formulario.*.id_categoria_pregunta.required' => 'La categoría de pregunta es obligatoria',
-                'formulario.*.id_categoria_pregunta.integer' => 'La categoría de pregunta debe ser un número entero',
-                'formulario.*.id_categoria_pregunta.exists' => 'La categoría de pregunta no existe',
-                'formulario.*.descripcion_pregunta.required' => 'La descripción de la pregunta es obligatoria',
-                'formulario.*.descripcion_pregunta.string' => 'La descripción de la pregunta debe ser una cadena de texto',
-                'formulario.*.descripcion_pregunta.max' => 'La descripción de la pregunta no puede exceder los 50 caracteres',
+                'formulario.*.type.required' => 'El tipo de pregunta es obligatorio',
+                'formulario.*.type.string' => 'El tipo de pregunta debe ser una cadena de texto',
+                'formulario.*.type.in' => 'El tipo de pregunta no es válido',
+                'formulario.*.shortQuestion.required' => 'La pregunta corta es obligatoria',
+                'formulario.*.shortQuestion.string' => 'La pregunta corta debe ser una cadena de texto',
+                'formulario.*.shortQuestion.max' => 'La pregunta corta no puede exceder los 50 caracteres',
                 'formulario.*.false_txt.string' => 'El texto falso debe ser una cadena de texto',
                 'formulario.*.false_txt.max' => 'El texto falso no puede exceder los 50 caracteres',
                 'formulario.*.true_txt.string' => 'El texto verdadero debe ser una cadena de texto',
                 'formulario.*.true_txt.max' => 'El texto verdadero no puede exceder los 50 caracteres',
-                'formulario.*.min_val.integer' => 'El valor mínimo de la escala numerica debe ser un número entero',
-                'formulario.*.min_val.min' => 'El valor mínimo de la escala numerica no puede ser menor que 0',
-                'formulario.*.min_val.max' => 'El valor mínimo de la escala numerica no puede ser mayor que 100',
-                'formulario.*.max_val.integer' => 'El valor máximo de la escala numerica debe ser un número entero',
-                'formulario.*.max_val.min' => 'El valor máximo de la escala numerica no puede ser menor que 0',
-                'formulario.*.max_val.max' => 'El valor máximo de la escala numerica no puede ser mayor que 100',
+                // 'formulario.*.rangeFrom.integer' => 'El rango desde debe ser un número entero',
+                // 'formulario.*.rangeFrom.min' => 'El rango desde debe ser mayor o igual a 0',
+                // 'formulario.*.rangeFrom.max' => 'El rango desde debe ser menor o igual a 100',
+                // 'formulario.*.rangeTo.integer' => 'El rango hasta debe ser un número entero',
+                // 'formulario.*.rangeTo.min' => 'El rango hasta debe ser mayor o igual a 0',
+                // 'formulario.*.rangeTo.max' => 'El rango hasta debe ser menor o igual a 100',
+                'formulario.*.rangeFrom.string' => 'El rango desde debe ser una cadena de texto',
+                'formulario.*.rangeTo.string' => 'El rango hasta debe ser una cadena de texto',
+                'formulario.*.options.array' => 'Las opciones deben ser un arreglo',
+                'formulario.*.options.*.string' => 'Las opciones deben ser cadenas de texto',
+                'formulario.*.options.*.max' => 'Las opciones no pueden exceder los 50 caracteres',
             ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
             $encuesta = Encuesta::find($id);
             if (!$encuesta) {
@@ -281,8 +295,8 @@ class EncuestaController extends Controller
             }
 
             // TODO: Implementar la lógica para actualizar el formulario de la encuesta
-            
-            
+
+
             return $this->success('Formulario de la encuesta actualizado exitosamente', $encuesta, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al actualizar el formulario de la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
