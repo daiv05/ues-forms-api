@@ -421,6 +421,166 @@ class EncuestaController extends Controller
         }
     }
 
+    public function publishSurvey(Request $request, $id)
+    {
+        try {
+            $encuesta = Encuesta::find($id);
+            if (!$encuesta) {
+                return $this->error('Encuesta no encontrada', 'No se encontró la encuesta con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            if ($encuesta->id_usuario !== auth('api')->user()->id) {
+                return $this->error('No tienes permiso para realizar esta acción', 'Acceso denegado', Response::HTTP_FORBIDDEN);
+            }
+            if ($encuesta->id_estado === EstadosEnum::ACTIVO->value) {
+                return $this->error('La encuesta ya se encuentra publicada', 'Encuesta ya publicada', Response::HTTP_FORBIDDEN);
+            }
+            if ($encuesta->preguntas->isEmpty()) {
+                return $this->error('La encuesta no tiene ninguna pregunta configurada', 'No puedes publicar una encuesta sin preguntas', Response::HTTP_FORBIDDEN);
+            }
+            DB::beginTransaction();
+            $encuesta->update([
+                'id_estado' => EstadosEnum::ACTIVO->value,
+                'fecha_publicacion' => now(),
+            ]);
+            DB::commit();
+            return $this->success('Encuesta publicada exitosamente', null, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al publicar la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function showSurveyToAnswer(Request $request, $codigo)
+    {
+        try {
+            $encuesta = Encuesta::where('codigo', $codigo)->first();
+            if (!$encuesta) {
+                return $this->error('Encuesta no encontrada', 'No se encontró la encuesta con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            if ($encuesta->id_estado !== EstadosEnum::ACTIVO->value) {
+                return $this->error('La encuesta no está disponible para responder', 'Encuesta no disponible', Response::HTTP_FORBIDDEN);
+            }
+            $formulario = $encuesta->preguntas()->with(['preguntasOpciones', 'preguntasTextosBooleanos', 'preguntasEscalasNumericas'])->get();
+            foreach ($formulario as $pregunta) {
+                $optionsList = [];
+                if ($pregunta->categoriaPregunta->codigo === CategoriaPreguntasEnum::FALSO_VERDADERO->value) {
+                    $optionsList = [
+                        [
+                            'id' => 1,
+                            'opcion' => $pregunta->preguntasTextosBooleanos->true_txt,
+                        ],
+                        [
+                            'id' => 2,
+                            'opcion' => $pregunta->preguntasTextosBooleanos->false_txt,
+                        ]
+                    ];
+                } else {
+                    $optionsList = $pregunta->preguntasOpciones->map(function ($opcion) {
+                        return [
+                            'id' => $opcion->id,
+                            'opcion' => $opcion->opcion,
+                        ];
+                    });
+                }
+                $formularioResponse[] = [
+                    'idPregunta' => $pregunta->id,
+                    'nombre' => $pregunta->categoriaPregunta->nombre,
+                    'type' => $pregunta->categoriaPregunta->codigo,
+                    'shortQuestion' => $pregunta->descripcion,
+                    'allowOtherOption' => $pregunta->es_abierta,
+                    'options' => $optionsList,
+                    'rangeFrom' => $pregunta->preguntasEscalasNumericas->first()?->min_val ?? 0,
+                    'rangeTo' => $pregunta->preguntasEscalasNumericas->first()?->max_val ?? 0,
+                ];
+
+                // $srvy_pregunta = Pregunta::create([
+                //     'id_categoria_pregunta' => CategoriaPreguntasEnum::from($pregunta['type'])->id(),
+                //     'id_encuesta' => $encuesta->id,
+                //     'descripcion' => $pregunta['shortQuestion'],
+                //     'es_abierta' => $pregunta['allowOtherOption'] ?? false,
+                // ]);
+                // switch ($pregunta['type']) {
+                //     case CategoriaPreguntasEnum::TEXTO_CORTO->value:
+                //         break;
+                //     case CategoriaPreguntasEnum::TEXTO_LARGO->value:
+                //         break;
+                //     case CategoriaPreguntasEnum::SELECCION_MULTIPLE->value:
+                //         $srvy_preguntas_opciones = [];
+                //         foreach ($pregunta['options'] as $index => $opcion) {
+                //             $srvy_preguntas_opciones[] = [
+                //                 'id_pregunta' => $srvy_pregunta->id,
+                //                 'opcion' => $opcion,
+                //                 'orden_inicial' => $index
+                //             ];
+                //         }
+                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                //         break;
+                //     case CategoriaPreguntasEnum::SELECCION_UNICA->value:
+                //         $srvy_preguntas_opciones = [];
+                //         foreach ($pregunta['options'] as $index => $opcion) {
+                //             $srvy_preguntas_opciones[] = [
+                //                 'id_pregunta' => $srvy_pregunta->id,
+                //                 'opcion' => $opcion,
+                //                 'orden_inicial' => $index
+                //             ];
+                //         }
+                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                //         break;
+                //     case CategoriaPreguntasEnum::ORDENAMIENTO->value:
+                //         $srvy_preguntas_opciones = [];
+                //         foreach ($pregunta['options'] as $index => $opcion) {
+                //             $srvy_preguntas_opciones[] = [
+                //                 'id_pregunta' => $srvy_pregunta->id,
+                //                 'opcion' => $opcion,
+                //                 'orden_inicial' => $index
+                //             ];
+                //         }
+                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                //         break;
+                //     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
+                //         $srvy_preguntas_escala_numerica = [
+                //             'id_pregunta' => $srvy_pregunta->id,
+                //             'min_val' => $pregunta['rangeFrom'],
+                //             'max_val' => $pregunta['rangeTo'],
+                //         ];
+                //         $srvy_pregunta->preguntasEscalasNumericas()->create($srvy_preguntas_escala_numerica);
+                //         break;
+                //     case CategoriaPreguntasEnum::ESCALA_LIKERT->value:
+                //         $srvy_preguntas_opciones = [];
+                //         foreach ($pregunta['options'] as $index => $opcion) {
+                //             $srvy_preguntas_opciones[] = [
+                //                 'id_pregunta' => $srvy_pregunta->id,
+                //                 'opcion' => $opcion,
+                //                 'orden_inicial' => $index
+                //             ];
+                //         }
+                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                //         break;
+                //     case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
+                //         $srvy_preguntas_texto_booleano = [
+                //             'id_pregunta' => $srvy_pregunta->id,
+                //             'false_txt' => $pregunta['options'][1] ?? 'Falso',
+                //             'true_txt' => $pregunta['options'][0] ?? 'Verdadero',
+                //         ];
+                //         $srvy_pregunta->preguntasTextosBooleanos()->create($srvy_preguntas_texto_booleano);
+                //         break;
+                //     default:
+                //         break;
+                // }
+            }
+            $response = [
+                'idEncuesta' => $encuesta->id,
+                'titulo' => $encuesta->titulo,
+                'descripcion' => $encuesta->descripcion,
+                'createdBy' => $encuesta->user->persona->nombre . ' ' . $encuesta->user->persona->apellido,
+                'formulario' => $formularioResponse,
+            ];
+            return $this->success('Formulario completo de la encuesta obtenido exitosamente', $response, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener el formulario completo de la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function destroy($id)
     {
         try {
