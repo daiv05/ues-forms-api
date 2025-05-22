@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('srvy_preguntas_texto_booleano', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_pregunta')->constrained('srvy_preguntas');
+            $table->foreignId('id_pregunta')->constrained('srvy_preguntas')->cascadeOnDelete();
             $table->string('false_txt');
             $table->string('true_txt');
             $table->timestamps();

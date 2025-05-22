@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('srvy_preguntas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('id_categoria_pregunta')->constrained('qst_categorias_preguntas');
-            $table->foreignId('id_encuesta')->constrained('srvy_encuestas');
+            $table->foreignId('id_encuesta')->constrained('srvy_encuestas')->cascadeOnDelete();
             $table->string('descripcion', 50);
             $table->boolean('es_abierta')->default(false);
             $table->timestamps();

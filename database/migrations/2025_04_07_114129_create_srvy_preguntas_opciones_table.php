@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('srvy_preguntas_opciones', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_pregunta')->constrained('srvy_preguntas');
+            $table->foreignId('id_pregunta')->constrained('srvy_preguntas')->cascadeOnDelete();
             $table->string('opcion', 50);
             $table->integer('orden_inicial')->default(0);
             $table->timestamps();
