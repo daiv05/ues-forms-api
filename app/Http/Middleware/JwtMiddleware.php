@@ -4,10 +4,10 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Exception;
-use JWTAuth;
 use Tymon\JWTAuth\Exceptions;
 use Illuminate\Http\Request;
 use App\Traits\ResponseTrait;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class JwtMiddleware
 {

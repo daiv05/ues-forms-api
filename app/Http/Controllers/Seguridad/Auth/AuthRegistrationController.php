@@ -81,7 +81,7 @@ class AuthRegistrationController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
+                'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_\-]+$/',
                 'email' => 'required|string|email|max:50|unique:users,email',
                 'password' => 'required|string|min:8|max:50',
                 'nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
@@ -89,7 +89,7 @@ class AuthRegistrationController extends Controller
                 'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9\-]+$/',
                 'justificacion_solicitud' => 'string|max:255|regex:/^[a-zA-Z0-9\sáéíóúñÁÉÍÓÚÑ.,;:()\-]+$/',
             ], [
-                'username.regex' => 'El usuario solo puede contener letras, números y guiones bajos',
+                'username.regex' => 'El usuario solo puede contener letras, números y guiones',
                 'username.max' => 'El usuario no puede exceder los 50 caracteres',
                 'username.unique' => 'Ya existe un usuario registrado con este /usuario',
                 'email.required' => 'El correo electrónico es obligatorio',
@@ -215,19 +215,26 @@ class AuthRegistrationController extends Controller
             $usuario = User::findOrFail($solicitud->id_usuario);
 
             if ($aprobado) {
+                // Aprobar solicitud
                 $solicitud->update([
                     'id_estado' => $validatedData['id_estado'],
                 ]);
+                // Activar usuario
                 $usuario->update(['activo' => true, 'id_estado' => EstadosEnum::ACTIVO->value]);
+                // Asignar rol por defecto
+                $usuario->assignRole('ENCUESTADOR');
+                // Enviar correo de aprobación
                 Mail::to($usuario->email)->send(new RegistrationRequestResponseMail([
                     'approved' => true,
                     'reason' => null,
                 ]));
             } else {
+                // Rechazar solicitud
                 $solicitud->update([
                     'id_estado' => $validatedData['id_estado'],
                     'justificacion_rechazo' => $validatedData['justificacion_rechazo'] ?? null,
                 ]);
+                // Enviar correo de rechazo
                 Mail::to($usuario->email)->send(new RegistrationRequestResponseMail([
                     'approved' => false,
                     'reason' => $validatedData['justificacion_rechazo'] ?? null,
