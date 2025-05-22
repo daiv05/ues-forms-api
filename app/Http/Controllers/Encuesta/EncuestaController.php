@@ -492,81 +492,6 @@ class EncuestaController extends Controller
                     'rangeFrom' => $pregunta->preguntasEscalasNumericas->first()?->min_val ?? 0,
                     'rangeTo' => $pregunta->preguntasEscalasNumericas->first()?->max_val ?? 0,
                 ];
-
-                // $srvy_pregunta = Pregunta::create([
-                //     'id_categoria_pregunta' => CategoriaPreguntasEnum::from($pregunta['type'])->id(),
-                //     'id_encuesta' => $encuesta->id,
-                //     'descripcion' => $pregunta['shortQuestion'],
-                //     'es_abierta' => $pregunta['allowOtherOption'] ?? false,
-                // ]);
-                // switch ($pregunta['type']) {
-                //     case CategoriaPreguntasEnum::TEXTO_CORTO->value:
-                //         break;
-                //     case CategoriaPreguntasEnum::TEXTO_LARGO->value:
-                //         break;
-                //     case CategoriaPreguntasEnum::SELECCION_MULTIPLE->value:
-                //         $srvy_preguntas_opciones = [];
-                //         foreach ($pregunta['options'] as $index => $opcion) {
-                //             $srvy_preguntas_opciones[] = [
-                //                 'id_pregunta' => $srvy_pregunta->id,
-                //                 'opcion' => $opcion,
-                //                 'orden_inicial' => $index
-                //             ];
-                //         }
-                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
-                //         break;
-                //     case CategoriaPreguntasEnum::SELECCION_UNICA->value:
-                //         $srvy_preguntas_opciones = [];
-                //         foreach ($pregunta['options'] as $index => $opcion) {
-                //             $srvy_preguntas_opciones[] = [
-                //                 'id_pregunta' => $srvy_pregunta->id,
-                //                 'opcion' => $opcion,
-                //                 'orden_inicial' => $index
-                //             ];
-                //         }
-                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
-                //         break;
-                //     case CategoriaPreguntasEnum::ORDENAMIENTO->value:
-                //         $srvy_preguntas_opciones = [];
-                //         foreach ($pregunta['options'] as $index => $opcion) {
-                //             $srvy_preguntas_opciones[] = [
-                //                 'id_pregunta' => $srvy_pregunta->id,
-                //                 'opcion' => $opcion,
-                //                 'orden_inicial' => $index
-                //             ];
-                //         }
-                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
-                //         break;
-                //     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
-                //         $srvy_preguntas_escala_numerica = [
-                //             'id_pregunta' => $srvy_pregunta->id,
-                //             'min_val' => $pregunta['rangeFrom'],
-                //             'max_val' => $pregunta['rangeTo'],
-                //         ];
-                //         $srvy_pregunta->preguntasEscalasNumericas()->create($srvy_preguntas_escala_numerica);
-                //         break;
-                //     case CategoriaPreguntasEnum::ESCALA_LIKERT->value:
-                //         $srvy_preguntas_opciones = [];
-                //         foreach ($pregunta['options'] as $index => $opcion) {
-                //             $srvy_preguntas_opciones[] = [
-                //                 'id_pregunta' => $srvy_pregunta->id,
-                //                 'opcion' => $opcion,
-                //                 'orden_inicial' => $index
-                //             ];
-                //         }
-                //         $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
-                //         break;
-                //     case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
-                //         $srvy_preguntas_texto_booleano = [
-                //             'id_pregunta' => $srvy_pregunta->id,
-                //             'false_txt' => $pregunta['options'][1] ?? 'Falso',
-                //             'true_txt' => $pregunta['options'][0] ?? 'Verdadero',
-                //         ];
-                //         $srvy_pregunta->preguntasTextosBooleanos()->create($srvy_preguntas_texto_booleano);
-                //         break;
-                //     default:
-                //         break;
-                // }
             }
             $response = [
                 'idEncuesta' => $encuesta->id,
@@ -578,6 +503,23 @@ class EncuestaController extends Controller
             return $this->success('Formulario completo de la encuesta obtenido exitosamente', $response, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al obtener el formulario completo de la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function answerSurvey(Request $request, $codigo)
+    {
+        try {
+            $encuesta = Encuesta::where('codigo', $codigo)->first();
+            if (!$encuesta) {
+                return $this->error('Encuesta no encontrada', 'No se encontró la encuesta con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            if ($encuesta->id_estado !== EstadosEnum::ACTIVO->value) {
+                return $this->error('La encuesta no está disponible para responder', 'Encuesta no disponible', Response::HTTP_FORBIDDEN);
+            }
+            // Aquí puedes agregar la lógica para guardar las respuestas de la encuesta
+            return $this->success('Encuesta respondida exitosamente', null, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->error('Error al responder la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
