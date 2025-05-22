@@ -151,8 +151,8 @@ class EncuestaController extends Controller
                     'shortQuestion' => $pregunta->descripcion,
                     'allowOtherOption' => $pregunta->es_abierta,
                     'options' => $pregunta->preguntasOpciones->pluck('opcion'),
-                    'rangeFrom' => (string) $pregunta->preguntasEscalasNumericas->first()?->min_val ?? null,
-                    'rangeTo' => (string) $pregunta->preguntasEscalasNumericas->first()?->max_val ?? null,
+                    'rangeFrom' => $pregunta->preguntasEscalasNumericas->first()?->min_val ?? 0,
+                    'rangeTo' => $pregunta->preguntasEscalasNumericas->first()?->max_val ?? 0,
                 ];
             }
             $encuesta->formulario = $formularioResponse;
@@ -262,10 +262,10 @@ class EncuestaController extends Controller
                     Rule::in(array_map(fn($item) => $item->value, CategoriaPreguntasEnum::cases())),
                 ],
                 'formulario.*.shortQuestion' => 'required|string|max:50',
-                // 'formulario.*.rangeFrom' => 'integer|min:0|max:100',
-                // 'formulario.*.rangeTo' => 'integer|min:0|max:100',
-                'formulario.*.rangeFrom' => 'string',
-                'formulario.*.rangeTo' => 'string',
+                'formulario.*.rangeFrom' => 'integer|min:0|max:100',
+                'formulario.*.rangeTo' => 'integer|min:0|max:100',
+                // 'formulario.*.rangeFrom' => 'string',
+                // 'formulario.*.rangeTo' => 'string',
                 'formulario.*.options' => 'array',
                 'formulario.*.options.*' => 'string|max:50',
                 'formulario.*.allowOtherOption' => 'boolean',
@@ -278,14 +278,14 @@ class EncuestaController extends Controller
                 'formulario.*.shortQuestion.required' => 'La pregunta corta es obligatoria',
                 'formulario.*.shortQuestion.string' => 'La pregunta corta debe ser una cadena de texto',
                 'formulario.*.shortQuestion.max' => 'La pregunta corta no puede exceder los 50 caracteres',
-                // 'formulario.*.rangeFrom.integer' => 'El rango desde debe ser un número entero',
-                // 'formulario.*.rangeFrom.min' => 'El rango desde debe ser mayor o igual a 0',
-                // 'formulario.*.rangeFrom.max' => 'El rango desde debe ser menor o igual a 100',
-                // 'formulario.*.rangeTo.integer' => 'El rango hasta debe ser un número entero',
-                // 'formulario.*.rangeTo.min' => 'El rango hasta debe ser mayor o igual a 0',
-                // 'formulario.*.rangeTo.max' => 'El rango hasta debe ser menor o igual a 100',
-                'formulario.*.rangeFrom.string' => 'El rango desde debe ser una cadena de texto',
-                'formulario.*.rangeTo.string' => 'El rango hasta debe ser una cadena de texto',
+                'formulario.*.rangeFrom.integer' => 'El rango desde debe ser un número entero',
+                'formulario.*.rangeFrom.min' => 'El rango desde debe ser mayor o igual a 0',
+                'formulario.*.rangeFrom.max' => 'El rango desde debe ser menor o igual a 100',
+                'formulario.*.rangeTo.integer' => 'El rango hasta debe ser un número entero',
+                'formulario.*.rangeTo.min' => 'El rango hasta debe ser mayor o igual a 0',
+                'formulario.*.rangeTo.max' => 'El rango hasta debe ser menor o igual a 100',
+                // 'formulario.*.rangeFrom.string' => 'El rango desde debe ser una cadena de texto',
+                // 'formulario.*.rangeTo.string' => 'El rango hasta debe ser una cadena de texto',
                 'formulario.*.options.array' => 'Las opciones deben ser un arreglo',
                 'formulario.*.options.*.string' => 'Las opciones deben ser cadenas de texto',
                 'formulario.*.options.*.max' => 'Las opciones no pueden exceder los 50 caracteres',
@@ -372,8 +372,8 @@ class EncuestaController extends Controller
                     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
                         $srvy_preguntas_escala_numerica = [
                             'id_pregunta' => $srvy_pregunta->id,
-                            'min_val' => $pregunta['rangeFrom'],
-                            'max_val' => $pregunta['rangeTo'],
+                            'min_val' => (int) $pregunta['rangeFrom'],
+                            'max_val' => (int) $pregunta['rangeTo'],
                         ];
                         $srvy_pregunta->preguntasEscalasNumericas()->create($srvy_preguntas_escala_numerica);
                         break;
