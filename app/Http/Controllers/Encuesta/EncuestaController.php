@@ -143,14 +143,23 @@ class EncuestaController extends Controller
             }
 
             $encuesta->load(['preguntas.preguntasOpciones', 'preguntas.preguntasTextosBooleanos', 'preguntas.preguntasEscalasNumericas']);
-            
+
             $formularioResponse = [];
             foreach ($encuesta->preguntas as $pregunta) {
+                $optionsList = [];
+                if ($pregunta->categoriaPregunta->codigo === CategoriaPreguntasEnum::FALSO_VERDADERO->value) {
+                    $optionsList = [
+                        $pregunta->preguntasTextosBooleanos?->true_txt,
+                        $pregunta->preguntasTextosBooleanos?->false_txt,
+                    ];
+                } else {
+                    $optionsList = $pregunta->preguntasOpciones->pluck('opcion');
+                }
                 $formularioResponse[] = [
                     'type' => $pregunta->categoriaPregunta->codigo,
                     'shortQuestion' => $pregunta->descripcion,
                     'allowOtherOption' => $pregunta->es_abierta,
-                    'options' => $pregunta->preguntasOpciones->pluck('opcion'),
+                    'options' => $optionsList,
                     'rangeFrom' => $pregunta->preguntasEscalasNumericas->first()?->min_val ?? 0,
                     'rangeTo' => $pregunta->preguntasEscalasNumericas->first()?->max_val ?? 0,
                 ];
@@ -372,8 +381,8 @@ class EncuestaController extends Controller
                     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
                         $srvy_preguntas_escala_numerica = [
                             'id_pregunta' => $srvy_pregunta->id,
-                            'min_val' => (int) $pregunta['rangeFrom'],
-                            'max_val' => (int) $pregunta['rangeTo'],
+                            'min_val' => $pregunta['rangeFrom'],
+                            'max_val' => $pregunta['rangeTo'],
                         ];
                         $srvy_pregunta->preguntasEscalasNumericas()->create($srvy_preguntas_escala_numerica);
                         break;
@@ -391,8 +400,8 @@ class EncuestaController extends Controller
                     case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
                         $srvy_preguntas_texto_booleano = [
                             'id_pregunta' => $srvy_pregunta->id,
-                            'false_txt' => $pregunta['options'][0] ?? 'Falso',
-                            'true_txt' => $pregunta['options'][1] ?? 'Verdadero',
+                            'false_txt' => $pregunta['options'][1] ?? 'Falso',
+                            'true_txt' => $pregunta['options'][0] ?? 'Verdadero',
                         ];
                         $srvy_pregunta->preguntasTextosBooleanos()->create($srvy_preguntas_texto_booleano);
                         break;
