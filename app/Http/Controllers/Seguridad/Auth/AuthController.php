@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Seguridad\Auth;
 
+use App\Enums\EstadosEnum;
 use App\Http\Controllers\Controller;
+use App\Models\Seguridad\FailedLoginAttempts;
+use App\Models\Seguridad\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -19,8 +22,39 @@ class AuthController extends Controller
         $credentials = $request->only('email', 'password');
 
         $token = Auth::guard('api')->attempt($credentials);
+
         if (!$token) {
-            return response()->json(['message' => 'Credenciales incorrectas'], 401);
+
+            // Limitar el número de intentos fallidos
+            $failedLoginAttempts = FailedLoginAttempts::where('email', $request->input('email'))
+                ->where('created_at', '>=', now()->subMinutes(5))
+                ->count();
+            if ($failedLoginAttempts >= 5) {
+                // Si el número de intentos fallidos es mayor o igual a 5, bloquear el acceso
+                $usuario = User::where('email', $request->input('email'))->first();
+                if ($usuario) {
+                    $usuario->id_estado = EstadosEnum::BLOQUEADO;
+                    $usuario->save();
+                }
+                return $this->error('Tu usuario ha sido bloqueado por múltiples intentos fallidos de inicio de sesión', 'Error de autenticación', Response::HTTP_UNAUTHORIZED);
+            }
+
+            // Guardar el intento fallido
+            $failedLoginAttempt = new FailedLoginAttempts();
+            $failedLoginAttempt->email = $request->input('email');
+            $failedLoginAttempt->ip_address = $request->ip();
+            $failedLoginAttempt->user_agent = $request->header('User-Agent');
+            $failedLoginAttempt->device = [
+                'platform' => $request->header('Platform'),
+                'version' => $request->header('Version'),
+                'device' => $request->header('Device'),
+            ];
+            $failedLoginAttempt->save();
+            // Limpiar los intentos fallidos después de 5 minutos
+            FailedLoginAttempts::where('email', $request->input('email'))
+                ->where('created_at', '<', now()->subMinutes(5))
+                ->delete();
+            return $this->error('Credenciales incorrectas', 'Error de autenticación', Response::HTTP_UNAUTHORIZED);
         }
 
         $user = Auth::guard('api')->user();
@@ -64,7 +98,7 @@ class AuthController extends Controller
 
         return response()->json([
             'accessToken' => $token,
-            'expires_in' => JWTAuth::factory()->getTTL() * 60,
+            'expires_in' => JWTAuth::factory()->getTTL(),
             'isUnlocked' => $isUnlocked,
         ]);
     }
