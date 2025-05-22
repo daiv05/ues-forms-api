@@ -156,6 +156,7 @@ class EncuestaController extends Controller
                     $optionsList = $pregunta->preguntasOpciones->pluck('opcion');
                 }
                 $formularioResponse[] = [
+                    'nombre' => $pregunta->categoriaPregunta->nombre,
                     'type' => $pregunta->categoriaPregunta->codigo,
                     'shortQuestion' => $pregunta->descripcion,
                     'allowOtherOption' => $pregunta->es_abierta,
