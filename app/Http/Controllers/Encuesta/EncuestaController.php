@@ -16,6 +16,7 @@ use App\Traits\PaginationTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Tymon\JWTAuth\Facades\JWTAuth;
 
 class EncuestaController extends Controller
 {
@@ -47,6 +48,7 @@ class EncuestaController extends Controller
             $validatedData = $validator->validated();
             // Obtener las encuestas con los filtros aplicados
             $query = Encuesta::with(['grupoMeta:id,nombre', 'user:id,username,email', 'estado:id,nombre'])
+                ->where('id_usuario', JWTAuth::user()->id)
                 ->orderBy('created_at', 'desc');
             // Aplicar filtros
             if (isset($validatedData['titulo'])) {
