@@ -1,0 +1,28 @@
+name: postgresql
+services:
+  postgres:
+    env_file: .env
+    container_name: postgres_database
+    image: postgres:15
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - storage:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_HOST_AUTH_METHOD: "trust"
+
+  pgadmin:
+    image: dpage/pgadmin4
+    ports:
+      - "8888:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: iscadev@mail.com
+      PGADMIN_DEFAULT_PASSWORD: iscadev01
+
+
+volumes:
+  storage:
