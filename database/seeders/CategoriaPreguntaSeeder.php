@@ -58,7 +58,7 @@ class CategoriaPreguntaSeeder extends Seeder
                 'es_escala_numerica' => true,
             ],
             [
-                'codigo' => 'escale_likert',
+                'codigo' => 'likert_scale',
                 'nombre' => 'Escala/Escala Likert',
                 'descripcion' => 'Preguntas de escala o Likert',
                 'id_clase_pregunta' => 4

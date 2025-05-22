@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('srvy_preguntas_escalas_numericas', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('id_pregunta')->constrained('srvy_preguntas');
+            $table->foreignId('id_pregunta')->constrained('srvy_preguntas')->cascadeOnDelete();
             $table->integer('min_val')->default(0);
             $table->integer('max_val')->default(10);
             $table->timestamps();

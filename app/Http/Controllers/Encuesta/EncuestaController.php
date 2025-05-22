@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Encuesta;
 
+use App\Enums\CategoriaPreguntasEnum;
 use App\Enums\EstadosEnum;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Encuesta\Encuesta;
+use App\Models\Encuesta\Pregunta;
 use Illuminate\Http\Request;
 use App\Traits\ResponseTrait;
 use Illuminate\Support\Facades\Validator;
@@ -140,9 +142,22 @@ class EncuestaController extends Controller
                 return $this->error('Acceso denegado', 'No tienes permiso para acceder a esta encuesta', Response::HTTP_FORBIDDEN);
             }
 
-            // TODO: Implementar la lógica para mostrar el formulario de la encuesta
-
-            return $this->success('Formulario de la encuesta obtenido exitosamente', $encuesta, Response::HTTP_OK);
+            $encuesta->load(['preguntas.preguntasOpciones', 'preguntas.preguntasTextosBooleanos', 'preguntas.preguntasEscalasNumericas']);
+            
+            $formularioResponse = [];
+            foreach ($encuesta->preguntas as $pregunta) {
+                $formularioResponse[] = [
+                    'type' => $pregunta->categoriaPregunta->codigo,
+                    'shortQuestion' => $pregunta->descripcion,
+                    'allowOtherOption' => $pregunta->es_abierta,
+                    'options' => $pregunta->preguntasOpciones->pluck('opcion'),
+                    'rangeFrom' => (string) $pregunta->preguntasEscalasNumericas->first()?->min_val ?? null,
+                    'rangeTo' => (string) $pregunta->preguntasEscalasNumericas->first()?->max_val ?? null,
+                ];
+            }
+            $encuesta->formulario = $formularioResponse;
+            $encuestaResponse = $encuesta->only('id', 'formulario');
+            return $this->success('Formulario de la encuesta obtenido exitosamente', $encuestaResponse, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->error('Error al obtener el formulario de la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -239,38 +254,47 @@ class EncuestaController extends Controller
     public function updateForm(Request $request, $id)
     {
         try {
-
             $validator = Validator::make($request->all(), [
                 'formulario' => 'array|required',
-                'formulario.*.id_categoria_pregunta' => 'required|integer|exists:qst_categorias_preguntas,id',
-                'formulario.*.descripcion_pregunta' => 'required|string|max:50',
-                'formulario.*.false_txt' => 'string|max:50',
-                'formulario.*.true_txt' => 'string|max:50',
-                'formulario.*.min_val' => 'integer|min:0|max:100',
-                'formulario.*.max_val' => 'integer|min:0|max:100',
-                'formulario.*.opciones' => 'array',
-                'formulario.*.opciones.*.opcion' => 'string|max:50',
-                'formulario.*.opciones.*.orden_inicial' => 'integer|min:0|max:100',
+                'formulario.*.type' => [
+                    'required',
+                    'string',
+                    Rule::in(array_map(fn($item) => $item->value, CategoriaPreguntasEnum::cases())),
+                ],
+                'formulario.*.shortQuestion' => 'required|string|max:50',
+                // 'formulario.*.rangeFrom' => 'integer|min:0|max:100',
+                // 'formulario.*.rangeTo' => 'integer|min:0|max:100',
+                'formulario.*.rangeFrom' => 'string',
+                'formulario.*.rangeTo' => 'string',
+                'formulario.*.options' => 'array',
+                'formulario.*.options.*' => 'string|max:50',
+                'formulario.*.allowOtherOption' => 'boolean',
             ], [
                 'formulario.required' => 'El formulario es obligatorio',
                 'formulario.array' => 'El formulario debe ser un arreglo',
-                'formulario.*.id_categoria_pregunta.required' => 'La categoría de pregunta es obligatoria',
-                'formulario.*.id_categoria_pregunta.integer' => 'La categoría de pregunta debe ser un número entero',
-                'formulario.*.id_categoria_pregunta.exists' => 'La categoría de pregunta no existe',
-                'formulario.*.descripcion_pregunta.required' => 'La descripción de la pregunta es obligatoria',
-                'formulario.*.descripcion_pregunta.string' => 'La descripción de la pregunta debe ser una cadena de texto',
-                'formulario.*.descripcion_pregunta.max' => 'La descripción de la pregunta no puede exceder los 50 caracteres',
-                'formulario.*.false_txt.string' => 'El texto falso debe ser una cadena de texto',
-                'formulario.*.false_txt.max' => 'El texto falso no puede exceder los 50 caracteres',
-                'formulario.*.true_txt.string' => 'El texto verdadero debe ser una cadena de texto',
-                'formulario.*.true_txt.max' => 'El texto verdadero no puede exceder los 50 caracteres',
-                'formulario.*.min_val.integer' => 'El valor mínimo de la escala numerica debe ser un número entero',
-                'formulario.*.min_val.min' => 'El valor mínimo de la escala numerica no puede ser menor que 0',
-                'formulario.*.min_val.max' => 'El valor mínimo de la escala numerica no puede ser mayor que 100',
-                'formulario.*.max_val.integer' => 'El valor máximo de la escala numerica debe ser un número entero',
-                'formulario.*.max_val.min' => 'El valor máximo de la escala numerica no puede ser menor que 0',
-                'formulario.*.max_val.max' => 'El valor máximo de la escala numerica no puede ser mayor que 100',
+                'formulario.*.type.required' => 'El tipo de pregunta es obligatorio',
+                'formulario.*.type.string' => 'El tipo de pregunta debe ser una cadena de texto',
+                'formulario.*.type.in' => 'El tipo de pregunta no es válido',
+                'formulario.*.shortQuestion.required' => 'La pregunta corta es obligatoria',
+                'formulario.*.shortQuestion.string' => 'La pregunta corta debe ser una cadena de texto',
+                'formulario.*.shortQuestion.max' => 'La pregunta corta no puede exceder los 50 caracteres',
+                // 'formulario.*.rangeFrom.integer' => 'El rango desde debe ser un número entero',
+                // 'formulario.*.rangeFrom.min' => 'El rango desde debe ser mayor o igual a 0',
+                // 'formulario.*.rangeFrom.max' => 'El rango desde debe ser menor o igual a 100',
+                // 'formulario.*.rangeTo.integer' => 'El rango hasta debe ser un número entero',
+                // 'formulario.*.rangeTo.min' => 'El rango hasta debe ser mayor o igual a 0',
+                // 'formulario.*.rangeTo.max' => 'El rango hasta debe ser menor o igual a 100',
+                'formulario.*.rangeFrom.string' => 'El rango desde debe ser una cadena de texto',
+                'formulario.*.rangeTo.string' => 'El rango hasta debe ser una cadena de texto',
+                'formulario.*.options.array' => 'Las opciones deben ser un arreglo',
+                'formulario.*.options.*.string' => 'Las opciones deben ser cadenas de texto',
+                'formulario.*.options.*.max' => 'Las opciones no pueden exceder los 50 caracteres',
+                'formulario.*.allowOtherOption.boolean' => 'El campo allowOtherOption debe ser verdadero o falso',
             ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
             $encuesta = Encuesta::find($id);
             if (!$encuesta) {
@@ -279,12 +303,108 @@ class EncuestaController extends Controller
             if ($encuesta->id_usuario !== auth('api')->user()->id) {
                 return $this->error('Acceso denegado', 'No tienes permiso para acceder a esta encuesta', Response::HTTP_FORBIDDEN);
             }
+            if ($encuesta->id_estado !== EstadosEnum::EN_EDICION->value) {
+                return $this->error('Encuesta no editable', 'Ya no puedes actualizar las preguntas de esta encuesta', Response::HTTP_FORBIDDEN);
+            }
 
-            // TODO: Implementar la lógica para actualizar el formulario de la encuesta
-            
-            
+            DB::beginTransaction();
+
+            $formulario = $request->input('formulario');
+
+            // Validar campos especiales requeridos segun categoria de pregunta
+            foreach ($formulario as $pregunta) {
+                $tipoPregunta = CategoriaPreguntasEnum::from($pregunta['type']);
+                $camposRequeridos = $tipoPregunta->fieldsRequired();
+                foreach ($camposRequeridos as $campo) {
+                    if (!isset($pregunta[$campo])) {
+                        return $this->error('Error de validación', 'El campo ' . $campo . ' es obligatorio para el tipo de pregunta ' . $tipoPregunta->name, Response::HTTP_UNPROCESSABLE_ENTITY);
+                    }
+                }
+            }
+
+            // Actualizar con nuevas preguntas
+            $encuesta->preguntas()->delete();
+            foreach ($formulario as $pregunta) {
+                $srvy_pregunta = Pregunta::create([
+                    'id_categoria_pregunta' => CategoriaPreguntasEnum::from($pregunta['type'])->id(),
+                    'id_encuesta' => $encuesta->id,
+                    'descripcion' => $pregunta['shortQuestion'],
+                    'es_abierta' => $pregunta['allowOtherOption'] ?? false,
+                ]);
+                switch ($pregunta['type']) {
+                    case CategoriaPreguntasEnum::TEXTO_CORTO->value:
+                        break;
+                    case CategoriaPreguntasEnum::TEXTO_LARGO->value:
+                        break;
+                    case CategoriaPreguntasEnum::SELECCION_MULTIPLE->value:
+                        $srvy_preguntas_opciones = [];
+                        foreach ($pregunta['options'] as $index => $opcion) {
+                            $srvy_preguntas_opciones[] = [
+                                'id_pregunta' => $srvy_pregunta->id,
+                                'opcion' => $opcion,
+                                'orden_inicial' => $index
+                            ];
+                        }
+                        $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                        break;
+                    case CategoriaPreguntasEnum::SELECCION_UNICA->value:
+                        $srvy_preguntas_opciones = [];
+                        foreach ($pregunta['options'] as $index => $opcion) {
+                            $srvy_preguntas_opciones[] = [
+                                'id_pregunta' => $srvy_pregunta->id,
+                                'opcion' => $opcion,
+                                'orden_inicial' => $index
+                            ];
+                        }
+                        $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                        break;
+                    case CategoriaPreguntasEnum::ORDENAMIENTO->value:
+                        $srvy_preguntas_opciones = [];
+                        foreach ($pregunta['options'] as $index => $opcion) {
+                            $srvy_preguntas_opciones[] = [
+                                'id_pregunta' => $srvy_pregunta->id,
+                                'opcion' => $opcion,
+                                'orden_inicial' => $index
+                            ];
+                        }
+                        $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                        break;
+                    case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
+                        $srvy_preguntas_escala_numerica = [
+                            'id_pregunta' => $srvy_pregunta->id,
+                            'min_val' => $pregunta['rangeFrom'],
+                            'max_val' => $pregunta['rangeTo'],
+                        ];
+                        $srvy_pregunta->preguntasEscalasNumericas()->create($srvy_preguntas_escala_numerica);
+                        break;
+                    case CategoriaPreguntasEnum::ESCALA_LIKERT->value:
+                        $srvy_preguntas_opciones = [];
+                        foreach ($pregunta['options'] as $index => $opcion) {
+                            $srvy_preguntas_opciones[] = [
+                                'id_pregunta' => $srvy_pregunta->id,
+                                'opcion' => $opcion,
+                                'orden_inicial' => $index
+                            ];
+                        }
+                        $srvy_pregunta->preguntasOpciones()->createMany($srvy_preguntas_opciones);
+                        break;
+                    case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
+                        $srvy_preguntas_texto_booleano = [
+                            'id_pregunta' => $srvy_pregunta->id,
+                            'false_txt' => $pregunta['options'][0] ?? 'Falso',
+                            'true_txt' => $pregunta['options'][1] ?? 'Verdadero',
+                        ];
+                        $srvy_pregunta->preguntasTextosBooleanos()->create($srvy_preguntas_texto_booleano);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            DB::commit();
+            $encuesta->load(['preguntas.preguntasOpciones', 'preguntas.preguntasTextosBooleanos', 'preguntas.preguntasEscalasNumericas']);
             return $this->success('Formulario de la encuesta actualizado exitosamente', $encuesta, Response::HTTP_OK);
         } catch (\Exception $e) {
+            DB::rollBack();
             return $this->error('Error al actualizar el formulario de la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
