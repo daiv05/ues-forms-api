@@ -16,10 +16,10 @@ class RespuestaPregunta extends Model
     protected $fillable = [
         'id_encuesta_respuesta',
         'id_pregunta',
-        'respuesta_texto',
+        'respuesta_abierta',
         'respuesta_numero',
         'respuesta_fecha',
-        'respuesta_booleano',
+        'respuesta_booleana',
         'es_abierta',
     ];
 

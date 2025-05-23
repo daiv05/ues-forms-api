@@ -15,16 +15,15 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('id_pregunta');
             $table->unsignedBigInteger('id_encuesta_respuesta');
-            $table->string('respuesta_abierta',255);
-            $table->boolean('respuesta_booleanda');
-            $table->boolean('es_abierta');
-            $table->integer('respuesta_escala');
+            $table->string('respuesta_abierta', 255)->nullable();
+            $table->boolean('respuesta_booleana')->default(false);
+            $table->boolean('es_abierta')->default(false);
+            $table->integer('respuesta_numero')->nullable();
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
 
             $table->foreign('id_pregunta')->references('id')->on('srvy_preguntas');
             $table->foreign('id_encuesta_respuesta')->references('id')->on('answ_encuesta_respuestas');
-
         });
     }
 

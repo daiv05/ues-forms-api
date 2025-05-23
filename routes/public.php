@@ -15,4 +15,5 @@ Route::prefix('auth')->group(function () {
 
 Route::prefix('external')->group(function () {
   Route::get('/show-survey/{codigo}', [EncuestaController::class, 'showSurveyToAnswer'])->name('encuestas.showSurveyToAnswer');
+  Route::post('/answer-survey', [EncuestaController::class, 'answerSurvey'])->name('encuestas.answerSurvey');
 });

@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('correo',50);
             $table->string('nombres',50);
             $table->string('apellidos',50);
-            $table->date('fecha_nancimiento');
+            $table->date('fecha_nacimiento');
             $table->string('telefono',20);
             $table->integer('edad');
             $table->timestamps();

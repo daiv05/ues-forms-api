@@ -517,8 +517,8 @@ class EncuestaController extends Controller
                 'codigo' => 'required|string|max:255|exists:srvy_encuestas,codigo',
                 // Datos del encuestado
                 'encuestado' => 'array|required',
-                'encuestado.nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
-                'encuestado.apellido' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'encuestado.nombres' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'encuestado.apellidos' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
                 'encuestado.email' => 'string|email|max:50',
                 'encuestado.fecha_nacimiento' => 'date_format:Y-m-d',
                 'encuestado.telefono' => 'string|max:20|regex:/^[0-9\s]+$/',
@@ -529,15 +529,19 @@ class EncuestaController extends Controller
                 'respuestas.*.answer' => 'string|max:255',
                 'respuestas.*.options' => 'array',
                 'respuestas.*.options.*' => 'integer|exists:srvy_preguntas_opciones,id',
-                'respuestas.*.openAnswer' => 'string|max:255',
+                'respuestas.*.openAnswer' => 'string|max:50',
                 'respuestas.*.rangeValue' => 'integer|min:0|max:100',
 
             ], [
+                'codigo.required' => 'El código de la encuesta es obligatorio',
+                'codigo.string' => 'El código de la encuesta debe ser una cadena de texto',
+                'codigo.max' => 'El código de la encuesta no puede exceder los 255 caracteres',
+                'codigo.exists' => 'No existe una encuesta con el código proporcionado',
                 // Datos del encuestado
-                'encuestado.nombre.regex' => 'Caracteres no válidos en el nombre',
-                'encuestado.nombre.max' => 'El nombre no puede exceder los 50 caracteres',
-                'encuestado.apellido.regex' => 'Caracteres no válidos en el apellido',
-                'encuestado.apellido.max' => 'El apellido no puede exceder los 50 caracteres',
+                'encuestado.nombres.regex' => 'Caracteres no válidos en el nombre',
+                'encuestado.nombres.max' => 'El nombre no puede exceder los 50 caracteres',
+                'encuestado.apellidos.regex' => 'Caracteres no válidos en el apellido',
+                'encuestado.apellidos.max' => 'El apellido no puede exceder los 50 caracteres',
                 'encuestado.email.email' => 'El email no es válido',
                 'encuestado.email.max' => 'El email no puede exceder los 50 caracteres',
                 'encuestado.fecha_nacimiento.date_format' => 'La fecha de nacimiento no tiene un formato válido',
@@ -573,8 +577,10 @@ class EncuestaController extends Controller
             $encuesta = Encuesta::where('codigo', $request->input('codigo'))->first();
 
             // Verificar si el encuestado ya ha respondido la encuesta
-            $existeEncuestado = Encuestado::where('id_encuesta', $encuesta->id)
-                ->where('email', $validatedData['email'])
+            $existeEncuestado = EncuestaRespuesta::where('id_encuesta', $encuesta->id)
+                ->whereHas('encuestado', function ($query) use ($validatedData) {
+                    $query->where('correo', $validatedData['encuestado']['email']);
+                })
                 ->exists();
             if ($existeEncuestado) {
                 return $this->error('Ya has respondido esta encuesta', 'No puedes volver a responder', Response::HTTP_FORBIDDEN);
@@ -598,9 +604,9 @@ class EncuestaController extends Controller
 
             // Guardar los datos del encuestado
             $encuestado = Encuestado::create([
-                'nombres' => $validatedData['encuestado']['nombre'] ?? null,
-                'apellidos' => $validatedData['encuestado']['apellido'] ?? null,
-                'email' => $validatedData['encuestado']['email'] ?? null,
+                'nombres' => $validatedData['encuestado']['nombres'] ?? null,
+                'apellidos' => $validatedData['encuestado']['apellidos'] ?? null,
+                'correo' => $validatedData['encuestado']['email'] ?? null,
                 'fecha_nacimiento' => $validatedData['encuestado']['fecha_nacimiento'] ?? null,
                 'telefono' => $validatedData['encuestado']['telefono'] ?? null,
                 'edad' => $validatedData['encuestado']['edad'] ?? null,
@@ -615,9 +621,11 @@ class EncuestaController extends Controller
             // Guardar las respuestas
             foreach ($validatedData['respuestas'] as $respuesta) {
 
-                $pregunta = Pregunta::find($respuesta['idPregunta']);
+                $pregunta = Pregunta::where('id', $respuesta['idPregunta'])
+                    ->where('id_encuesta', $encuesta->id)
+                    ->first();
                 if (!$pregunta) {
-                    return $this->error('Pregunta no encontrada', 'No se encontró la pregunta con el ID proporcionado', Response::HTTP_NOT_FOUND);
+                    return $this->error('La pregunta no existe o no pertenece a esta encuesta X(' . $respuesta['idPregunta'] . ')', 'No se encontró la pregunta con el ID proporcionado', Response::HTTP_NOT_FOUND);
                 }
                 $preguntaType = $pregunta->categoriaPregunta->codigo;
                 $preguntaIsAbierta = $pregunta->es_abierta;
@@ -625,35 +633,54 @@ class EncuestaController extends Controller
 
                 switch ($preguntaType) {
                     case CategoriaPreguntasEnum::TEXTO_CORTO->value:
-                        // TODO: Validar el len de texto corto
+                        if (strlen($respuesta['answer']) > 50) {
+                            return $this->error('La respuesta corta no puede exceder los 50 caracteres P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
                         RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
-                            'respuesta_texto' => $respuesta['answer'] ?? '',
+                            'respuesta_abierta' => $respuesta['answer'] ?? '',
                         ]);
 
                         break;
                     case CategoriaPreguntasEnum::TEXTO_LARGO->value:
-                        // TODO: Validar el len de texto largo
+                        if (strlen($respuesta['answer']) > 255) {
+                            return $this->error('La respuesta larga P(' . $preguntaId . ') no puede exceder los 255 caracteres', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
                         RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
-                            'respuesta_texto' => $respuesta['answer'] ?? '',
+                            'respuesta_abierta' => $respuesta['answer'] ?? '',
                         ]);
 
                         break;
                     case CategoriaPreguntasEnum::SELECCION_MULTIPLE->value:
-                        // TODO: Validar que la respuesta no sea mayor a 10 opciones
-                        // TODO: Validar que la respuesta no sea menor a 1 opcion
-                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        if (!isset($respuesta['options']) && !$preguntaIsAbierta) {
+                            return $this->error('La selección de respuestas P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (!isset($respuesta['options']) && $preguntaIsAbierta && !isset($respuesta['openAnswer'])) {
+                            return $this->error('Debe indicar una respuesta para P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (isset($respuesta['options'])) {
+                            if (count($respuesta['options']) > 15) {
+                                return $this->error('La respuesta P(' . $preguntaId . ') no puede exceder las 15 opciones', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                            if (count($respuesta['options']) < 1) {
+                                return $this->error('Debe seleccionar al menos una opción en las preguntas cerradas P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                            $arrayIds = $pregunta->preguntasOpciones->pluck('id')->toArray();
+                            $idsSeleccionados = array_intersect($respuesta['options'], $arrayIds);
+                            if (count($idsSeleccionados) !== count($respuesta['options'])) {
+                                return $this->error('Una de las opciones seleccionadas no es válida P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                        }
                         $respPregunta = RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
-                            'respuesta_texto' => $preguntaIsAbierta && $respuesta['openAnswer'] ? $respuesta['openAnswer'] : '',
-                            'es_abierta' => $preguntaIsAbierta && $respuesta['openAnswer'],
+                            'respuesta_abierta' => $preguntaIsAbierta && isset($respuesta['openAnswer']) ? $respuesta['openAnswer'] : '',
+                            'es_abierta' => $preguntaIsAbierta && isset($respuesta['openAnswer']),
                         ]);
-
-                        if (!$preguntaIsAbierta && $respuesta['openAnswer']) {
+                        if (!$preguntaIsAbierta) {
                             foreach ($respuesta['options'] as $index => $opcionId) {
                                 $opcionId = (int)$opcionId;
                                 OpcionSeleccionada::create([
@@ -666,17 +693,33 @@ class EncuestaController extends Controller
 
                         break;
                     case CategoriaPreguntasEnum::SELECCION_UNICA->value:
-                        // TODO: Validar que la respuesta no sea mayor a 1 opcion
-                        // TODO: Validar que la respuesta no sea menor a 1 opcion
-                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        if (!isset($respuesta['options']) && !$preguntaIsAbierta) {
+                            return $this->error('La selección de respuestas P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (!isset($respuesta['options']) && $preguntaIsAbierta && !isset($respuesta['openAnswer'])) {
+                            return $this->error('Debe indicar una respuesta para P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (isset($respuesta['options'])) {
+                            if (!isset($respuesta['options'])) {
+                                return $this->error('La respuesta P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                            if (count($respuesta['options']) !== 1) {
+                                return $this->error('La respuesta P(' . $preguntaId . ') debe tener una sola opción seleccionada', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                            $arrayIds = $pregunta->preguntasOpciones->pluck('id')->toArray();
+                            $idsSeleccionados = array_intersect($respuesta['options'], $arrayIds);
+                            if (count($idsSeleccionados) !== count($respuesta['options'])) {
+                                return $this->error('Una de las opciones seleccionadas no es válida P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                            }
+                        }
                         $respPregunta = RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
-                            'respuesta_texto' => $preguntaIsAbierta && $respuesta['openAnswer'] ? $respuesta['openAnswer'] : '',
-                            'es_abierta' => $preguntaIsAbierta && $respuesta['openAnswer'],
+                            'respuesta_abierta' => $preguntaIsAbierta && isset($respuesta['openAnswer']) ? $respuesta['openAnswer'] : '',
+                            'es_abierta' => $preguntaIsAbierta && isset($respuesta['openAnswer']),
                         ]);
 
-                        if (!$preguntaIsAbierta && !$respuesta['openAnswer']) {
+                        if (!$preguntaIsAbierta && !isset($respuesta['openAnswer'])) {
                             foreach ($respuesta['options'] as $index => $opcionId) {
                                 $opcionId = (int)$opcionId;
                                 OpcionSeleccionada::create([
@@ -689,8 +732,14 @@ class EncuestaController extends Controller
 
                         break;
                     case CategoriaPreguntasEnum::ORDENAMIENTO->value:
-                        // TODO: Validar que la cantidad de opciones seleccionadas sea igual a la cantidad de opciones de la pregunta
-                        // TODO: Validar que las opciones seleccionadas sean de la pregunta
+                        if (!isset($respuesta['options'])) {
+                            return $this->error('La respuesta P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        $arrayIds = $pregunta->preguntasOpciones->pluck('id')->toArray();
+                        $idsSeleccionados = array_intersect($respuesta['options'], $arrayIds);
+                        if (count($idsSeleccionados) !== count($respuesta['options'])) {
+                            return $this->error('No se han seleccionado las opciones disponibles para ordenar en esta pregunta P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
                         $respPregunta = RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
@@ -706,7 +755,9 @@ class EncuestaController extends Controller
                         }
                         break;
                     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
-                        // TODO: Validar que el numero este dentro del rango
+                        if ($respuesta['rangeValue'] < $pregunta->preguntasEscalasNumericas->first()->min_val || $respuesta['rangeValue'] > $pregunta->preguntasEscalasNumericas->first()->max_val) {
+                            return $this->error('El valor de la escala numérica no está dentro del rango indicado P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
                         $respPregunta = RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
@@ -714,9 +765,17 @@ class EncuestaController extends Controller
                         ]);
                         break;
                     case CategoriaPreguntasEnum::ESCALA_LIKERT->value:
-                        // TODO: Validar que la respuesta no sea mayor a 1 opcion
-                        // TODO: Validar que la respuesta no sea menor a 1 opcion
-                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        if (!isset($respuesta['options'])) {
+                            return $this->error('La respuesta P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (count($respuesta['options']) !== 1) {
+                            return $this->error('La respuesta P(' . $preguntaId . ') debe tener una sola opción seleccionada', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        $arrayIds = $pregunta->preguntasOpciones->pluck('id')->toArray();
+                        $idsSeleccionados = array_intersect($respuesta['options'], $arrayIds);
+                        if (count($idsSeleccionados) !== count($respuesta['options'])) {
+                            return $this->error('Una de las opciones seleccionadas no es válida P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
                         $respPregunta = RespuestaPregunta::create([
                             'id_encuesta_respuesta' => $encuestaRespuesta->id,
                             'id_pregunta' => $preguntaId,
@@ -732,17 +791,28 @@ class EncuestaController extends Controller
                         }
                         break;
                     case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
-                        // $respPregunta = RespuestaPregunta::create([
-                        //     'id_encuesta_respuesta' => $encuestaRespuesta->id,
-                        //     'id_pregunta' => $preguntaId,
-                        //     'respuesta_booleano' => $respuesta['answer'] === 'true' ? true : false,
-                        // ]);
+                        if (!isset($respuesta['options'])) {
+                            return $this->error('La respuesta P(' . $preguntaId . ') no puede estar vacía', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        if (count($respuesta['options']) !== 1) {
+                            return $this->error('La respuesta P(' . $preguntaId . ') debe tener una sola opción seleccionada', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        $arrayIds = [1, 2]; // IDs de las opciones de verdadero y falso, en ese orden
+                        $idsSeleccionados = array_intersect($respuesta['options'], $arrayIds);
+                        if (count($idsSeleccionados) !== count($respuesta['options'])) {
+                            return $this->error('La opción seleccionada no es válida P(' . $preguntaId . ')', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
+                        }
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_booleana' => $respuesta['options'][0] === 1 ? true : false,
+                        ]);
                         break;
                     default:
+                        return $this->error('La categoria de la pregunta no es válida', 'Error de validación', Response::HTTP_UNPROCESSABLE_ENTITY);
                         break;
                 }
             }
-
             DB::commit();
             return $this->success('Tu respuesta ha sido guardada', 'Gracias :D', Response::HTTP_OK);
         } catch (\Exception $e) {
