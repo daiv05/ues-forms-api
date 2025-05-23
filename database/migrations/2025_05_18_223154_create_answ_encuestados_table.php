@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('apellidos',50);
             $table->date('fecha_nancimiento');
             $table->string('telefono',20);
+            $table->integer('edad');
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
         });

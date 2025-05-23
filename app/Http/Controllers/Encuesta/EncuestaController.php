@@ -8,6 +8,10 @@ use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
 use App\Models\Encuesta\Encuesta;
 use App\Models\Encuesta\Pregunta;
+use App\Models\Respuesta\Encuestado;
+use App\Models\Respuesta\EncuestaRespuesta;
+use App\Models\Respuesta\OpcionSeleccionada;
+use App\Models\Respuesta\RespuestaPregunta;
 use Illuminate\Http\Request;
 use App\Traits\ResponseTrait;
 use Illuminate\Support\Facades\Validator;
@@ -506,19 +510,243 @@ class EncuestaController extends Controller
         }
     }
 
-    public function answerSurvey(Request $request, $codigo)
+    public function answerSurvey(Request $request)
     {
         try {
-            $encuesta = Encuesta::where('codigo', $codigo)->first();
+            $validator = Validator::make($request->all(), [
+                'codigo' => 'required|string|max:255|exists:srvy_encuestas,codigo',
+                // Datos del encuestado
+                'encuestado' => 'array|required',
+                'encuestado.nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'encuestado.apellido' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'encuestado.email' => 'string|email|max:50',
+                'encuestado.fecha_nacimiento' => 'date_format:Y-m-d',
+                'encuestado.telefono' => 'string|max:20|regex:/^[0-9\s]+$/',
+                'encuestado.edad' => 'integer|min:0|max:120',
+                // Respuestas
+                'respuestas' => 'array|required',
+                'respuestas.*.idPregunta' => 'required|integer|exists:srvy_preguntas,id',
+                'respuestas.*.answer' => 'string|max:255',
+                'respuestas.*.options' => 'array',
+                'respuestas.*.options.*' => 'integer|exists:srvy_preguntas_opciones,id',
+                'respuestas.*.openAnswer' => 'string|max:255',
+                'respuestas.*.rangeValue' => 'integer|min:0|max:100',
+
+            ], [
+                // Datos del encuestado
+                'encuestado.nombre.regex' => 'Caracteres no válidos en el nombre',
+                'encuestado.nombre.max' => 'El nombre no puede exceder los 50 caracteres',
+                'encuestado.apellido.regex' => 'Caracteres no válidos en el apellido',
+                'encuestado.apellido.max' => 'El apellido no puede exceder los 50 caracteres',
+                'encuestado.email.email' => 'El email no es válido',
+                'encuestado.email.max' => 'El email no puede exceder los 50 caracteres',
+                'encuestado.fecha_nacimiento.date_format' => 'La fecha de nacimiento no tiene un formato válido',
+                'encuestado.telefono.regex' => 'Caracteres no válidos en el teléfono',
+                'encuestado.telefono.max' => 'El teléfono no puede exceder los 20 caracteres',
+                'encuestado.edad.integer' => 'La edad debe ser un número entero',
+                'encuestado.edad.min' => 'La edad debe ser mayor que 0',
+                'encuestado.edad.max' => 'Enserio tienes mas de 120 años?',
+                // Respuestas
+                'respuestas.required' => 'No se ha enviado ninguna respuesta',
+                'respuestas.array' => 'Las respuestas deben ser un arreglo',
+                'respuestas.*.idPregunta.required' => 'El ID de la pregunta es obligatorio',
+                'respuestas.*.idPregunta.integer' => 'El ID de la pregunta debe ser un número entero',
+                'respuestas.*.idPregunta.exists' => 'El ID de la pregunta no es válido',
+                'respuestas.*.answer.string' => 'La respuesta debe ser una cadena de texto',
+                'respuestas.*.answer.max' => 'La respuesta no puede exceder los 255 caracteres',
+                'respuestas.*.options.array' => 'Las respuestas de selección deben manejarse como un arreglo',
+                'respuestas.*.options.*.integer' => 'Las respuestas de selección deben ser un arreglo de números enteros',
+                'respuestas.*.options.*.exists' => 'Una de las opciones seleccionadas no es válida',
+                'respuestas.*.openAnswer.string' => 'La respuesta abierta debe ser una cadena de texto',
+                'respuestas.*.openAnswer.max' => 'La respuesta abierta no puede exceder los 255 caracteres',
+                'respuestas.*.rangeValue.integer' => 'El valor de rango debe ser un número entero',
+                'respuestas.*.rangeValue.min' => 'El valor de rango debe ser mayor o igual a 0',
+                'respuestas.*.rangeValue.max' => 'El valor de rango debe ser menor o igual a 100',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+
+            $encuesta = Encuesta::where('codigo', $request->input('codigo'))->first();
+
+            // Verificar si el encuestado ya ha respondido la encuesta
+            $existeEncuestado = Encuestado::where('id_encuesta', $encuesta->id)
+                ->where('email', $validatedData['email'])
+                ->exists();
+            if ($existeEncuestado) {
+                return $this->error('Ya has respondido esta encuesta', 'No puedes volver a responder', Response::HTTP_FORBIDDEN);
+            }
+
+            $encuesta = Encuesta::where('codigo', $validatedData['codigo'])->first();
             if (!$encuesta) {
                 return $this->error('Encuesta no encontrada', 'No se encontró la encuesta con el ID proporcionado', Response::HTTP_NOT_FOUND);
             }
+
             if ($encuesta->id_estado !== EstadosEnum::ACTIVO->value) {
                 return $this->error('La encuesta no está disponible para responder', 'Encuesta no disponible', Response::HTTP_FORBIDDEN);
             }
-            // Aquí puedes agregar la lógica para guardar las respuestas de la encuesta
-            return $this->success('Encuesta respondida exitosamente', null, Response::HTTP_OK);
+
+            // Verificar si es el encuestador
+            // if ($encuesta->id_usuario === auth('api')->user()->id) {
+            //     return $this->error('No puedes responder tu propia encuesta', 'Encuesta no disponible', Response::HTTP_FORBIDDEN);
+            // }
+
+            DB::beginTransaction();
+
+            // Guardar los datos del encuestado
+            $encuestado = Encuestado::create([
+                'nombres' => $validatedData['encuestado']['nombre'] ?? null,
+                'apellidos' => $validatedData['encuestado']['apellido'] ?? null,
+                'email' => $validatedData['encuestado']['email'] ?? null,
+                'fecha_nacimiento' => $validatedData['encuestado']['fecha_nacimiento'] ?? null,
+                'telefono' => $validatedData['encuestado']['telefono'] ?? null,
+                'edad' => $validatedData['encuestado']['edad'] ?? null,
+            ]);
+
+            // Registrar la respuesta de la encuesta
+            $encuestaRespuesta = EncuestaRespuesta::create([
+                'id_encuesta' => $encuesta->id,
+                'id_encuestado' => $encuestado->id,
+            ]);
+
+            // Guardar las respuestas
+            foreach ($validatedData['respuestas'] as $respuesta) {
+
+                $pregunta = Pregunta::find($respuesta['idPregunta']);
+                if (!$pregunta) {
+                    return $this->error('Pregunta no encontrada', 'No se encontró la pregunta con el ID proporcionado', Response::HTTP_NOT_FOUND);
+                }
+                $preguntaType = $pregunta->categoriaPregunta->codigo;
+                $preguntaIsAbierta = $pregunta->es_abierta;
+                $preguntaId = $pregunta->id;
+
+                switch ($preguntaType) {
+                    case CategoriaPreguntasEnum::TEXTO_CORTO->value:
+                        // TODO: Validar el len de texto corto
+                        RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_texto' => $respuesta['answer'] ?? '',
+                        ]);
+
+                        break;
+                    case CategoriaPreguntasEnum::TEXTO_LARGO->value:
+                        // TODO: Validar el len de texto largo
+                        RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_texto' => $respuesta['answer'] ?? '',
+                        ]);
+
+                        break;
+                    case CategoriaPreguntasEnum::SELECCION_MULTIPLE->value:
+                        // TODO: Validar que la respuesta no sea mayor a 10 opciones
+                        // TODO: Validar que la respuesta no sea menor a 1 opcion
+                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_texto' => $preguntaIsAbierta && $respuesta['openAnswer'] ? $respuesta['openAnswer'] : '',
+                            'es_abierta' => $preguntaIsAbierta && $respuesta['openAnswer'],
+                        ]);
+
+                        if (!$preguntaIsAbierta && $respuesta['openAnswer']) {
+                            foreach ($respuesta['options'] as $index => $opcionId) {
+                                $opcionId = (int)$opcionId;
+                                OpcionSeleccionada::create([
+                                    'id_pregunta_opcion' => $opcionId,
+                                    'id_respuesta_pregunta' => $respPregunta->id,
+                                    'orden_final' => $index,
+                                ]);
+                            }
+                        }
+
+                        break;
+                    case CategoriaPreguntasEnum::SELECCION_UNICA->value:
+                        // TODO: Validar que la respuesta no sea mayor a 1 opcion
+                        // TODO: Validar que la respuesta no sea menor a 1 opcion
+                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_texto' => $preguntaIsAbierta && $respuesta['openAnswer'] ? $respuesta['openAnswer'] : '',
+                            'es_abierta' => $preguntaIsAbierta && $respuesta['openAnswer'],
+                        ]);
+
+                        if (!$preguntaIsAbierta && !$respuesta['openAnswer']) {
+                            foreach ($respuesta['options'] as $index => $opcionId) {
+                                $opcionId = (int)$opcionId;
+                                OpcionSeleccionada::create([
+                                    'id_pregunta_opcion' => $opcionId,
+                                    'id_respuesta_pregunta' => $respPregunta->id,
+                                    'orden_final' => $index,
+                                ]);
+                            }
+                        }
+
+                        break;
+                    case CategoriaPreguntasEnum::ORDENAMIENTO->value:
+                        // TODO: Validar que la cantidad de opciones seleccionadas sea igual a la cantidad de opciones de la pregunta
+                        // TODO: Validar que las opciones seleccionadas sean de la pregunta
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                        ]);
+
+                        foreach ($respuesta['options'] as $index => $opcionId) {
+                            $opcionId = (int)$opcionId;
+                            OpcionSeleccionada::create([
+                                'id_pregunta_opcion' => $opcionId,
+                                'id_respuesta_pregunta' => $respPregunta->id,
+                                'orden_final' => $index,
+                            ]);
+                        }
+                        break;
+                    case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
+                        // TODO: Validar que el numero este dentro del rango
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                            'respuesta_numero' => $respuesta['rangeValue'] ?? 0,
+                        ]);
+                        break;
+                    case CategoriaPreguntasEnum::ESCALA_LIKERT->value:
+                        // TODO: Validar que la respuesta no sea mayor a 1 opcion
+                        // TODO: Validar que la respuesta no sea menor a 1 opcion
+                        // TODO: Validar que la opcion seleccionada sea de la pregunta
+                        $respPregunta = RespuestaPregunta::create([
+                            'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                            'id_pregunta' => $preguntaId,
+                        ]);
+
+                        foreach ($respuesta['options'] as $index => $opcionId) {
+                            $opcionId = (int)$opcionId;
+                            OpcionSeleccionada::create([
+                                'id_pregunta_opcion' => $opcionId,
+                                'id_respuesta_pregunta' => $respPregunta->id,
+                                'orden_final' => $index,
+                            ]);
+                        }
+                        break;
+                    case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
+                        // $respPregunta = RespuestaPregunta::create([
+                        //     'id_encuesta_respuesta' => $encuestaRespuesta->id,
+                        //     'id_pregunta' => $preguntaId,
+                        //     'respuesta_booleano' => $respuesta['answer'] === 'true' ? true : false,
+                        // ]);
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            DB::commit();
+            return $this->success('Tu respuesta ha sido guardada', 'Gracias :D', Response::HTTP_OK);
         } catch (\Exception $e) {
+            DB::rollBack();
             return $this->error('Error al responder la encuesta', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

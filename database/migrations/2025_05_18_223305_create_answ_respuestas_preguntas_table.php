@@ -15,10 +15,10 @@ return new class extends Migration
             $table->id();
             $table->unsignedBigInteger('id_pregunta');
             $table->unsignedBigInteger('id_encuesta_respuesta');
-            $table->string('txt',255);
-            $table->boolean('valor');
+            $table->string('respuesta_abierta',255);
+            $table->boolean('respuesta_booleanda');
             $table->boolean('es_abierta');
-            $table->integer('num_escala');
+            $table->integer('respuesta_escala');
             $table->timestamps();
             $table->softDeletes('deleted_at', 0);
 

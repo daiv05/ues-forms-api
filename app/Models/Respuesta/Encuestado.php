@@ -8,20 +8,21 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Encuestado extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory, SoftDeletes;
 
-    protected $table= 'answ_encuestados';
+    protected $table = 'answ_encuestados';
 
-    protected $fillable =[
+    protected $fillable = [
         'correo',
         'nombres',
         'apellidos',
         'fecha_nacimiento',
         'telefono',
+        'edad',
         'activo'
     ];
 
-    public function respuestaEncuesta()
+    public function encuestasRespuestas()
     {
         return $this->hasMany(EncuestaRespuesta::class, 'id_encuestado');
     }

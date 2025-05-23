@@ -2,29 +2,35 @@
 
 namespace App\Models\Respuesta;
 
-use App\Models\Encuesta\Encuesta;
 use App\Models\Encuesta\Pregunta;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use PhpParser\Node\Expr\PreDec;
 
 class RespuestaPregunta extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory, SoftDeletes;
 
-    protected $table='answ_respuestas_preguntas';
+    protected $table = 'answ_respuestas_preguntas';
 
-    protected $fillable =[];
+    protected $fillable = [
+        'id_encuesta_respuesta',
+        'id_pregunta',
+        'respuesta_texto',
+        'respuesta_numero',
+        'respuesta_fecha',
+        'respuesta_booleano',
+        'es_abierta',
+    ];
 
     public function encuestaRespuesta()
     {
-        return $this->belongsTo(EncuestaRespuesta::class,'id_encuesta_respuesta');
+        return $this->belongsTo(EncuestaRespuesta::class, 'id_encuesta_respuesta');
     }
 
-    public function opcionSeleccionada()
+    public function opcionesSeleccionadas()
     {
-        return $this->hasMany(OpcionSeleccionada::class,'id_respuesta_pregunta');
+        return $this->hasMany(OpcionSeleccionada::class, 'id_respuesta_pregunta');
     }
 
     public function pregunta()
