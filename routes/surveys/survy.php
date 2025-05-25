@@ -16,4 +16,6 @@ Route::put('/editor/form/{id}', [EncuestaController::class, 'updateForm'])->midd
 
 Route::put('publish/{id}', [EncuestaController::class, 'publishSurvey'])->middleware('permissions:encuesta_editor')->name('encuestas.publishSurvey');
 
+Route::get('/statistics/{id}', [EncuestaController::class, 'surveyStatistics'])->middleware('permissions:encuesta_editor')->name('encuestas.surveyStatistics');
+
 Route::delete('/{id}', [EncuestaController::class, 'destroy'])->middleware('permissions:encuesta_ver')->name('encuestas.destroy');
