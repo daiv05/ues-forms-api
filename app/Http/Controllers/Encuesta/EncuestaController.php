@@ -1022,7 +1022,7 @@ class EncuestaController extends Controller
                     case CategoriaPreguntasEnum::ESCALA_NUMERICA->value:
                         $respuestasEscalaNumerica = $respuestas->map(function ($respuesta) use ($preguntaId) {
                             return $respuesta->respuestasPreguntas->where('id_pregunta', $preguntaId)->first()?->respuesta_numero;
-                        })->filter()->values()->all();
+                        })->values()->all();
                         $valores = [];
                         foreach ($respuestasEscalaNumerica as $respuesta) {
                             if ($respuesta !== null) {
@@ -1094,7 +1094,7 @@ class EncuestaController extends Controller
                     case CategoriaPreguntasEnum::FALSO_VERDADERO->value:
                         $respuestasFalsoVerdadero = $respuestas->map(function ($respuesta) use ($preguntaId) {
                             return $respuesta->respuestasPreguntas->where('id_pregunta', $preguntaId)->first()?->respuesta_booleana;
-                        })->filter()->values()->all();
+                        })->values()->all();
                         $respuestasAbiertas = [];
                         if ($preguntaIsAbierta) {
                             $respuestasAbiertas = $respuestas->map(function ($respuesta) use ($preguntaId) {
@@ -1113,6 +1113,7 @@ class EncuestaController extends Controller
                                 'cantidad' => 0,
                             ],
                         ];
+                        error_log(json_encode($respuestasFalsoVerdadero));
                         foreach ($respuestasFalsoVerdadero as $respuesta) {
                             if ($respuesta) {
                                 $opciones[0]['cantidad']++;
