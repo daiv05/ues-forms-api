@@ -3,6 +3,7 @@
 namespace App\Models\Encuesta;
 
 use App\Models\Catalogo\Estado;
+use App\Models\Respuesta\EncuestaRespuesta;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,10 +13,10 @@ use App\Models\Seguridad\User;
 
 class Encuesta extends Model
 {
-    use HasFactory;
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'srvy_encuestas';
+
     protected $fillable = [
         'id_usuario',
         'id_grupo_meta',
@@ -47,4 +48,8 @@ class Encuesta extends Model
         return $this->belongsTo(Estado::class, 'id_estado');
     }
 
+    public function encuestasRespuestas(): HasMany
+    {
+        return $this->hasMany(EncuestaRespuesta::class, 'id_encuesta');
+    }
 }

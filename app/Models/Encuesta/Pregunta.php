@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Pregunta extends Model
 {
@@ -32,9 +33,9 @@ class Pregunta extends Model
         return $this->belongsTo(CategoriaPregunta::class, 'id_categoria_pregunta');
     }
 
-    function preguntasTextosBooleanos(): HasMany
+    function preguntasTextosBooleanos(): HasOne
     {
-        return $this->hasMany(PreguntaTextoBooleano::class, 'id_pregunta');
+        return $this->hasOne(PreguntaTextoBooleano::class, 'id_pregunta');
     }
 
     function preguntasEscalasNumericas(): HasMany

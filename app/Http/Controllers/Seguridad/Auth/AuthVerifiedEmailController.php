@@ -38,7 +38,10 @@ class AuthVerifiedEmailController extends Controller
         if ($verifiedEmail) {
             // Verificar si el email ya fue verificado previamente para no enviar un nuevo código
             if ($verifiedEmail->verified_at) {
-                return $this->error('El email ya ha sido verificado', "", Response::HTTP_BAD_REQUEST);
+                return $this->success('Correo electrónico ya verificado', [
+                    'email' => $email,
+                    'verified_previously' => true
+                ], Response::HTTP_OK);
             }
 
             // Eliminar el código previo
