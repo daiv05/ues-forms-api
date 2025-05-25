@@ -1113,7 +1113,6 @@ class EncuestaController extends Controller
                                 'cantidad' => 0,
                             ],
                         ];
-                        error_log(json_encode($respuestasFalsoVerdadero));
                         foreach ($respuestasFalsoVerdadero as $respuesta) {
                             if ($respuesta) {
                                 $opciones[0]['cantidad']++;
