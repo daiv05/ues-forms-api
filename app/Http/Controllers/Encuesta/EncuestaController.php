@@ -983,7 +983,9 @@ class EncuestaController extends Controller
                         $cantidadOpciones = $pregunta->preguntasOpciones->count();
                         $arrayCantidadOpciones = range(0, $cantidadOpciones - 1);
                         $datasets = [];
+                        $labels = [];
                         foreach ($arrayCantidadOpciones as $index => $opcionNo) {
+                            $labels[] = "Posición " . $index + 1;
                             $opciones = $pregunta->preguntasOpciones->map(function ($opcion) use ($respuestasOrdenamiento, $index) {
                                 $cantidad = 0;
                                 foreach ($respuestasOrdenamiento as $respuestaOrdenada) {
@@ -1000,7 +1002,7 @@ class EncuestaController extends Controller
                                 ];
                             });
                             $datasets[] = [
-                                'label' => 'Posición ' . ($index + 1),
+                                'label' => $opciones[$index]['opcion'],
                                 'data' => $opciones->pluck('cantidad')->toArray(),
                             ];
                         }
@@ -1012,7 +1014,7 @@ class EncuestaController extends Controller
                             'allowOtherOption' => $preguntaIsAbierta,
                             'textResults' => null,
                             'graphData' => [
-                                'labels' => ['0', '1', '2'],
+                                'labels' => $labels,
                                 'datasets' => $datasets,
                             ],
                         ];
