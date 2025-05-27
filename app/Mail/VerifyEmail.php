@@ -13,27 +13,45 @@ class VerifyEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $code;
-
-    public function __construct($code)
+    /**
+     * Create a new message instance.
+     */
+    public function __construct(public $dataEmail)
     {
-        $this->code = $code;
+        //
     }
 
+    /**
+     * Get the message envelope.
+     */
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verificar Correo',
+            subject: 'Verificación de correo electrónico',
         );
     }
 
+    /**
+     * Get the message content definition.
+     */
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.verify',
+            view: 'emails.verify',
+            with: [
+                'destinatarios' => $this->dataEmail['destinatarios'],
+                'emailReceptor' => $this->dataEmail['emailReceptor'],
+                'verificationCode' => $this->dataEmail['verificationCode'],
+                'expirationCode' => $this->dataEmail['expirationCode'],
+            ],
         );
     }
 
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
     public function attachments(): array
     {
         return [];

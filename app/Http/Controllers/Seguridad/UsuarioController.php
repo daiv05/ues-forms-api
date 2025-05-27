@@ -2,218 +2,298 @@
 
 namespace App\Http\Controllers\Seguridad;
 
+use App\Enums\EstadosEnum;
 use App\Enums\GeneralEnum;
 use App\Http\Controllers\Controller;
-use App\Models\Mantenimientos\Escuela;
 use App\Models\Registro\Persona;
-use App\Models\rhu\EmpleadoPuesto;
-use App\Models\rhu\Puesto;
 use App\Models\Seguridad\User;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
-use Spatie\Permission\Models\Role;
+use App\Traits\ResponseTrait;
+use Illuminate\Support\Facades\Validator;
+use Symfony\Component\HttpFoundation\Response;
+use App\Traits\PaginationTrait;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use OwenIt\Auditing\Models\Audit;
-
 
 class UsuarioController extends Controller
 {
-    public function index(Request $request): View
+    use ResponseTrait, PaginationTrait;
+
+    public function index(Request $request)
     {
-        $nombreFilter = $request->get('nombre-filter');
-        $emailFilter = $request->get('email-filter');
-        $rolFilter = $request->get('role-filter');
+        try {
+            $validator = Validator::make($request->all(), [
+                'nombre_usuario' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'id_estado' => 'integer|exists:ctl_estados,id',
+            ], [
+                'nombre_usuario.regex' => 'Caracteres no válidos en el nombre/usuario',
+                'nombre_usuario.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
+                'id_estado.exists' => 'El estado debe existir en la base de datos',
+                'id_estado.integer' => 'El estado debe ser un número entero'
+            ]);
 
-        $usuarios = User::with('roles', 'persona')
-            ->when($nombreFilter, function ($query, $nombreFilter) {
-                return $query->whereHas('persona', function ($query) use ($nombreFilter) {
-                    $query->whereRaw("CONCAT(nombre, ' ', apellido) LIKE ?", ["%{$nombreFilter}%"]);
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+            // Obtener los usuarios con su persona y estado (columnas especificadas en el modelo)
+            $query = User::select('id', 'username', 'email', 'id_persona', 'id_estado')->with(['persona:id,nombre,apellido', 'estado:id,nombre']);
+            // Aplicar filtros
+            if (isset($validatedData['nombre_usuario'])) {
+                // Buscar por username o nombre de persona
+                $query->where(function ($q) use ($validatedData) {
+                    $q->where('username', 'ilike', '%' . $validatedData['nombre_usuario'] . '%')
+                        ->orWhereHas('persona', function ($q) use ($validatedData) {
+                            $q->where('nombre', 'ilike', '%' . $validatedData['nombre_usuario'] . '%')
+                                ->orWhere('apellido', 'ilike', '%' . $validatedData['nombre_usuario'] . '%');
+                        });
                 });
-            })
-            ->when($emailFilter, function ($query, $emailFilter) {
-                return $query->where('email', 'LIKE', "%{$emailFilter}%");
-            })
-            ->when($rolFilter, function ($query, $rolFilter) {
-                return $query->whereHas('roles', function ($query) use ($rolFilter) {
-                    $query->where('id', '=', $rolFilter);
-                });
-            })
-            ->paginate(GeneralEnum::PAGINACION->value)->appends($request->query());
-
-        $roles = Role::all();
-
-        $roles = $roles->pluck('name', 'id');
-        return view('seguridad.usuarios.index', compact('usuarios', 'roles'));
+            }
+            if (isset($validatedData['id_estado'])) {
+                $query->where('id_estado', $validatedData['id_estado']);
+            }
+            $usuarios = $query->get();
+            if ($request['paginate'] === "true") {
+                $paginatedData = $this->paginate($usuarios->toArray(), $request['per_page'] ?? GeneralEnum::PAGINACION->value, $request['page'] ?? 1);
+                return $this->successPaginated('Usuarios obtenidos exitosamente', $paginatedData, Response::HTTP_OK);
+            } else {
+                return $this->success('Usuarios obtenidos exitosamente', $usuarios, Response::HTTP_OK);
+            }
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener los usuarios', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
+
     public function store(Request $request)
     {
-
-        $rules = [
-            'nombre' => 'required|string|max:255',
-            'apellido' => 'required|string|max:255',
-            'fecha_nacimiento' => 'required|date_format:d/m/Y',
-            'telefono' => 'required|string|max:15',
-            'email' => 'required|string|email|max:255|unique:users',
-            'carnet' => 'required|string|max:20|unique:users',
-            'tipo_user' => 'required|boolean', // Validar que el tipo de usuario sea 1 o 2
-            'roles' => 'nullable|string', // Roles como cadena separada por comas
-        ];
-
-        $messages = [
-            'tipo_user.boolean' => 'El tipo de usuario debe ser un valor booleano.',
-            'fecha_nacimiento.date_format' => 'El campo fecha de nacimiento no tiene un formato válido.',
-            'fecha_nacimiento.required' => 'El campo fecha de nacimiento es obligatorio.',
-        ];
-        $tipo = $request->input('tipo_user');
-
-        if ($tipo == '1') {
-            $rules['escuela'] = 'required|exists:escuelas,id';
-            $rules['email'] = 'required|string|email|max:255|unique:users|regex:/^[a-zA-Z0-9._%+-]+@ues\.edu\.sv$/'; // Validar que el correo sea institucional
-            $messages['email.regex'] = 'El correo electrónico debe ser institucional (@ues.edu.sv).';
-        } else {
-            $rules['puesto'] = 'required|exists:puestos,id'; // Validar que puesto existe en la tabla puestos
-        }
-        $request->validate($rules);
-
-        $request->merge([
-            'fecha_nacimiento' => \Carbon\Carbon::createFromFormat('d/m/Y', $request->input('fecha_nacimiento'))->format('Y-m-d')
-        ]);
-
         try {
+            $validator = Validator::make($request->all(), [
+                // User
+                'username' => 'required|string|max:50|unique:users,username|regex:/^[a-zA-Z0-9_]+$/',
+                'email' => 'required|string|email|max:50|unique:users,email',
+                'password' => 'required|string|min:8|max:50',
+                'id_estado' => [
+                    'required',
+                    Rule::in(EstadosEnum::usuarios())
+                ],
+                // Persona
+                'nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'apellido' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9\-]+$/',
+                'activo' => 'boolean',
+                // Roles
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
+            ], [
+                'username.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
+                'username.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
+                'username.unique' => 'El nombre/usuario ya existe en la base de datos',
+                'email.required' => 'El correo electrónico es obligatorio',
+                'email.email' => 'El correo electrónico no es válido',
+                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
+                'email.unique' => 'El correo electrónico ya existe en la base de datos',
+                'password.required' => 'La contraseña es obligatoria',
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
+                'nombre.regex' => 'Caracteres no válidos en el nombre',
+                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
+                'apellido.regex' => 'Caracteres no válidos en el apellido',
+                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
+                'identificacion.regex' => 'La identificación solo puede contener letras, números y guiones',
+                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
+                'activo.boolean' => 'El campo activo debe ser verdadero o falso',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+                'id_estado.required' => 'Debe seleccionar los roles a asignar',
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $validatedData = $validator->validated();
+
             DB::beginTransaction();
 
             $persona = Persona::create([
-                'nombre' => $request->nombre,
-                'apellido' => $request->apellido,
-                'fecha_nacimiento' => $request->fecha_nacimiento,
-                'telefono' => $request->telefono,
+                'nombre' => $validatedData['nombre'],
+                'apellido' => $validatedData['apellido'],
+                'identificacion' => $validatedData['identificacion'],
+                'activo' => true,
             ]);
-            $usuario = User::create([
-                'email' => $request->input('email'),
-                'carnet' => $request->input('carnet'),
-                'activo' => $request->has('activo'),
-                'password' => bcrypt('password123'),
-                'id_persona' => $persona->id,
-            ]);
-            if ($tipo == '1') {
-                $usuario->id_escuela = $request->input('escuela');
-                $usuario->es_estudiante = true;
-                $usuario->save();
 
-                $usuario->assignRole('USUARIO');
-            } else {
-                $usuario->es_estudiante = false;
-                $usuario->save();
-                EmpleadoPuesto::create([
-                    'id_usuario' => $usuario->id,
-                    'id_puesto' => $request->input('puesto'),
-                ]);
+            $usuario = User::create([
+                'username' => $validatedData['username'],
+                'email' => $validatedData['email'],
+                'password' => bcrypt($validatedData['password']),
+                'id_persona' => $persona->id,
+                'id_estado' => $validatedData['id_estado']
+            ]);
+
+            if (isset($validatedData['roles'])) {
+                $usuario->assignRole($validatedData['roles']);
             }
-            // Si hay roles, convertir la cadena de IDs a nombres de roles
-            if ($request->filled('roles')) {
-                $roles = Role::whereIn('id', explode(',', $request->roles))->pluck('name')->toArray();
-                $usuario->syncRoles($roles);
-            } else {
-                $usuario->assignRole('USUARIO');
-            }
+
             DB::commit();
+
+            return $this->success('Usuario creado exitosamente', $usuario, Response::HTTP_CREATED);
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->with('message', [
-                'type' => 'danger',
-                'content' => 'Ocurrió un error al crear el usuario. Por favor, inténtelo de nuevo.',
-            ]);
+            return $this->error('Error al crear el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        // Redireccionar con mensaje de éxito
-        return redirect()->route('usuarios.index')->with('message', [
-            'type' => 'success',
-            'content' => 'Usuario creado y roles asignados correctamente.',
-        ]);
     }
+
+    public function show($id)
+    {
+        try {
+            $usuario = User::with(['persona:id,nombre,apellido', 'estado:id,nombre'])->find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            $usuario->getRoleNames();
+            return $this->success('Usuario obtenido exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function update(Request $request, $id)
     {
-        $user = User::findOrFail($id);
-        $rules = [
-            'nombre' => 'required|string',
-            'apellido' => 'required|string',
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id), ],
-            'carnet' => 'required|string|max:20',
-            'roles' => 'nullable|string', // Validar los roles (cadena separada por comas)
-        ];
-        if ($user->es_estudiante) {
-            $rules['escuela'] = 'required|exists:escuelas,id';
+        try {
+            $validator = Validator::make($request->all(), [
+                'username' => 'string|max:50|unique:users,username,' . $id . '|regex:/^[a-zA-Z0-9_]+$/',
+                'email' => 'string|email|max:50|unique:users,email,' . $id,
+                'password' => 'string|min:8|max:50',
+                'nombre' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'apellido' => 'string|max:50|regex:/^[a-zA-Z\sáéíóúñÁÉÍÓÚÑ]+$/',
+                'identificacion' => 'string|max:20|regex:/^[a-zA-Z0-9\-]+$/',
+                'activo' => 'boolean',
+                'id_estado' => Rule::in(EstadosEnum::usuarios()),
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
+            ], [
+                'username.regex' => 'El nombre/usuario solo puede contener letras, números y guiones bajos',
+                'username.max' => 'El nombre/usuario no puede exceder los 50 caracteres',
+                'username.unique' => 'El nombre/usuario ya existe en la base de datos',
+                'email.required' => 'El correo electrónico es obligatorio',
+                'email.email' => 'El correo electrónico no es válido',
+                'email.max' => 'El correo electrónico no puede exceder los 50 caracteres',
+                'email.unique' => 'El correo electrónico ya existe en la base de datos',
+                'password.min' => 'La contraseña debe tener al menos 8 caracteres',
+                'password.max' => 'La contraseña no puede exceder los 50 caracteres',
+                'nombre.regex' => 'Caracteres no válidos en el nombre',
+                'nombre.max' => 'Los nombres no pueden exceder los 50 caracteres',
+                'apellido.regex' => 'Caracteres no válidos en el apellido',
+                'apellido.max' => 'Los apellidos no pueden exceder los 50 caracteres',
+                'identificacion.regex' => 'La identificación solo puede contener letras, números y guiones',
+                'identificacion.max' => 'La identificación no puede exceder los 20 caracteres',
+                'activo.boolean' => 'El campo activo debe ser verdadero o falso',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
+            ]);
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $validatedData = $validator->validated();
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            DB::beginTransaction();
+            if (isset($validatedData['nombre'])) {
+                $usuario->persona->nombre = $validatedData['nombre'];
+            }
+            if (isset($validatedData['apellido'])) {
+                $usuario->persona->apellido = $validatedData['apellido'];
+            }
+            if (isset($validatedData['identificacion'])) {
+                $usuario->persona->identificacion = $validatedData['identificacion'];
+            }
+            if (isset($validatedData['username'])) {
+                $usuario->username = $validatedData['username'];
+            }
+            if (isset($validatedData['email'])) {
+                $usuario->email = $validatedData['email'];
+            }
+            if (isset($validatedData['password'])) {
+                $usuario->password = bcrypt($validatedData['password']);
+            }
+            if (isset($validatedData['id_estado'])) {
+                $usuario->id_estado = $validatedData['id_estado'];
+            }
+            if (isset($validatedData['activo'])) {
+                $usuario->activo = $validatedData['activo'];
+            }
+            if (isset($validatedData['roles'])) {
+                $usuario->syncRoles($validatedData['roles']);
+            }
+            $usuario->persona->save();
+            $usuario->save();
+            DB::commit();
+            return $this->success('Usuario actualizado exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al actualizar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        $request->validate($rules);
-        $user->update([
-            'email' => $request->email,
-            'carnet' => $request->carnet,
-            'activo' => $request->has('activo'),
-        ]);
-
-        if ($user->es_estudiante) {
-            $user->id_escuela = $request->escuela;
-            $user->save();
-        }
-        $persona = Persona::findOrFail($user->id_persona);
-        $persona->update([
-            'nombre' => $request->nombre,
-            'apellido' => $request->apellido
-        ]);
-        $currentRoles = $user->roles->pluck('name')->toArray();
-        $newRoles = Role::whereIn('id', explode(',', $request->roles))->pluck('name')->toArray();
-        $user->syncRoles($newRoles);
-        Audit::create([
-            'user_id' => auth()->id(),
-            'event' => 'Actualizar_roles',
-            'auditable_type' => 'App\Models\Seguridad\User',
-            'auditable_id' => $user->id,  //
-            'old_values' =>  $currentRoles,
-            'new_values' => $newRoles,
-            'url' => request()->url(),
-            'ip_address' => request()->ip(),
-            'user_agent' => request()->header('User-Agent'),
-        ]);
-        return redirect()->route('usuarios.index')->with('message', [
-            'type' => 'success',
-            'content' => 'Usuario actualizado y roles asignados correctamente.',
-        ]);
     }
 
-    public function create(Request $request): View
+    public function destroy($id)
     {
-
-        $roles = Role::all();
-        $escuelas = Escuela::all()->pluck('nombre', 'id');
-        $out = new \Symfony\Component\Console\Output\ConsoleOutput();
-        $idEntidad = $request->input('entidad');
-
-        $entidades = [];
-        $entidadesBackup = \App\Models\rhu\Entidades::all();
-        foreach ($entidadesBackup as $entidad) {
-            $entidades[$entidad->id] = $entidad->nombre;
+        try {
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            $usuario->delete();
+            return $this->success('Usuario eliminado exitosamente', null, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al eliminar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-        $puestos = Puesto::all()->groupBy('id_entidad')->map(function ($puestos) {
-            return $puestos->pluck('nombre', 'id');
-        });
-
-        return view('seguridad.usuarios.create', compact('roles', 'entidades', 'puestos', 'escuelas'));
     }
-    public function show(string $id)
+
+    public function updateByAdmin(Request $request, $id)
     {
+        // Acepta actualizar estado y roles asignados
+        try {
+            $validator = Validator::make($request->all(), [
+                'id_estado' => Rule::in(EstadosEnum::usuarios()),
+                'roles' => 'array',
+                'roles.*' => 'string|exists:roles,name',
+            ], [
+                'id_estado.in' => 'El estado de usuario seleccionado no es válido',
+                'roles.array' => 'Los roles deben ser un arreglo',
+                'roles.*.string' => 'Los roles deben ser cadenas de texto',
+                'roles.*.exists' => 'Uno o más de los roles seleccionados no son válidos',
+            ]);
 
-        $user = User::with('empleadosPuestos.puesto.entidad', 'empleadosPuestos.empleadosAcciones.reporte')->findOrFail($id);
-        return view('seguridad.usuarios.show', compact('user'));
-    }
-    public function edit(string $id)
-    {
-        $user = User::with('empleadosPuestos')->findOrFail($id);
-        $escuelas = Escuela::all()->pluck('nombre', 'id');
+            if ($validator->fails()) {
+                return $this->validationError('Ocurrió un error de validación', $validator->errors(), Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
 
-        // Obtener todos los roles disponibles
-        $roles = Role::all();
-
-        return view('seguridad.usuarios.edit', compact('user', 'roles', 'escuelas'));
+            $validatedData = $validator->validated();
+            $usuario = User::find($id);
+            if (!$usuario) {
+                return $this->error('Usuario no encontrado', 'No se encontró el usuario con el ID proporcionado', Response::HTTP_NOT_FOUND);
+            }
+            DB::beginTransaction();
+            if (isset($validatedData['id_estado'])) {
+                $usuario->id_estado = $validatedData['id_estado'];
+            }
+            if (isset($validatedData['roles'])) {
+                $usuario->syncRoles($validatedData['roles']);
+            }
+            $usuario->save();
+            DB::commit();
+            return $this->success('Usuario actualizado exitosamente', $usuario, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->error('Error al actualizar el usuario', $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

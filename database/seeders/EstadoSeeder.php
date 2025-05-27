@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Reportes\Estado;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -14,16 +13,18 @@ class EstadoSeeder extends Seeder
     public function run(): void
     {
         $estados = [
-            ['nombre' => 'ASIGNADO'],
-            ['nombre' => 'EN PROCESO'],
-            ['nombre' => 'EN PAUSA'],
-            ['nombre' => 'COMPLETADO'],
-            ['nombre' => 'FINALIZADO'],
-            ['nombre' => 'INCOMPLETO']
+            ['nombre' => 'Activo', 'activo' => true],
+            ['nombre' => 'Inactivo', 'activo' => true],
+            ['nombre' => 'Pendiente', 'activo' => true],
+            ['nombre' => 'En edición', 'activo' => true],
+            ['nombre' => 'Rechazado', 'activo' => true],
+            ['nombre' => 'Aprobado', 'activo' => true],
+            ['nombre' => 'Bloqueado', 'activo' => true],
+
         ];
 
-        foreach($estados as $estado) {
-            Estado::create($estado);
+        foreach ($estados as $estado) {
+            \App\Models\Catalogo\Estado::create($estado);
         }
     }
 }

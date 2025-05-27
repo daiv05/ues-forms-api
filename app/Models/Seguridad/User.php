@@ -2,10 +2,9 @@
 
 namespace App\Models\Seguridad;
 
+use App\Models\Catalogo\Estado;
+use App\Models\Encuesta\GrupoMeta;
 use App\Models\Registro\Persona;
-use App\Models\Reportes\Reporte;
-use App\Models\rhu\EmpleadoPuesto;
-use App\Models\Mantenimientos\Escuela;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -13,26 +12,24 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
-use OwenIt\Auditing\Contracts\Auditable;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\SendTwoFactorCode;
 use Illuminate\Support\Facades\DB;
-use IvanoMatteo\LaravelDeviceTracking\Facades\DeviceTracker;
-use IvanoMatteo\LaravelDeviceTracking\Traits\UseDevices;
+use Tymon\JWTAuth\Contracts\JWTSubject;
 
-class User extends Authenticatable implements Auditable
+class User extends Authenticatable implements JWTSubject
 {
-    use HasApiTokens, HasFactory, HasRoles, Notifiable, UseDevices, \OwenIt\Auditing\Auditable;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable;
 
+    protected $guard_name = 'api';
 
     protected $fillable = [
-        'carnet',
+        'username',
         'email',
         'password',
         'id_persona',
         'activo',
-        'id_escuela',
-        'es_estudiante'
+        'id_estado'
     ];
 
     protected $hidden = [
@@ -79,39 +76,62 @@ class User extends Authenticatable implements Auditable
         $this->notify(new SendTwoFactorCode($code));
     }
 
-    public function markDeviceAsVerified(): void
+    public function getRoles()
     {
-        DeviceTracker::flagCurrentAsVerified();
+        return $this->roles();
     }
 
-    public function hasDeviceVerified(): bool
-    {
-        $device = DeviceTracker::detectFindAndUpdate();
-        return $device->currentUserStatus->verified_at !== null;
-    }
-
-    public function setCarnetAttribute($value)
-    {
-        $this->attributes['carnet'] = strtoupper(strtr($value, 'áéíóú', 'ÁÉÍÓÚ'));
-    }
+    //
+    // Relationships
+    //
 
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class, 'id_persona');
     }
 
-    public function empleadosPuestos(): HasMany
+    public function gruposMetas(): HasMany
     {
-        return $this->hasMany(EmpleadoPuesto::class, 'id_usuario');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 
-    public function reportes(): HasMany
+    public function encuestas(): HasMany
     {
-        return $this->hasMany(Reporte::class, 'id_usuario_reporta');
+        return $this->hasMany(GrupoMeta::class, 'id_usuario');
     }
 
-    public function escuela(): BelongsTo
+    public function estado(): BelongsTo
     {
-        return $this->belongsTo(Escuela::class, 'id_escuela');
+        return $this->belongsTo(Estado::class, 'id_estado');
+    }
+
+    //
+    // JWTSubject
+    //
+
+    public function getJWTIdentifier()
+    {
+        return $this->getKey(); // Devuelve el ID del usuario
+    }
+
+    public function getJWTCustomClaims()
+    {
+        $firstName = explode(' ', $this->persona->nombre)[0];
+        $lastName = explode(' ', $this->persona->apellido)[0];
+        $fullName = $firstName . ' ' . $lastName;
+        return [
+            'id' => $this->id,
+            'username' => $this->username,
+            'name' => $fullName,
+            'email' => $this->email,
+            'roles' => $this->getRoles()->pluck('name'),
+            'permissions' => $this->getAllPermissions()->pluck('name'),
+        ];
+    }
+
+    // Validaciones
+    public function checkPermissions($permission = []): bool
+    {
+        return $this->hasAllPermissions($permission);
     }
 }

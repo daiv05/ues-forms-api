@@ -2,12 +2,17 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
-use Spatie\Permission\Exceptions\UnauthorizedException;
+use Illuminate\Http\JsonResponse;
+use App\Traits\ResponseTrait;
+use Symfony\Component\HttpFoundation\Response;
 use Throwable;
 
 class Handler extends ExceptionHandler
 {
+    use ResponseTrait;
     /**
      * A list of exception types with their corresponding custom log levels.
      *
@@ -42,17 +47,35 @@ class Handler extends ExceptionHandler
      */
     public function register(): void
     {
-        $this->reportable(function (Throwable $e) {
-            //
+        $this->reportable(function (Throwable $e) {});
+
+        $this->renderable(function (Throwable $e) {
+            $code = Response::HTTP_INTERNAL_SERVER_ERROR;
+            $message = '';
+
+            if ($e instanceof \Spatie\Permission\Exceptions\UnauthorizedException) {
+                $code = Response::HTTP_FORBIDDEN;
+                $message = 'No tienes permiso para acceder a este recurso';
+            } else if ($e instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+                $code = Response::HTTP_NOT_FOUND;
+                $message = 'La ruta solicitada no existe';
+            } else if ($e instanceof \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException) {
+                error_log($e);
+                $code = Response::HTTP_METHOD_NOT_ALLOWED;
+                $message = 'El método de la petición no es válido';
+            } else if ($e instanceof \Illuminate\Database\QueryException) {
+                $code = Response::HTTP_INTERNAL_SERVER_ERROR;
+                $message = 'Ha ocurrido un error inesperado';
+            }
+
+            return $this->error($message, $e->getMessage(), $code);
         });
     }
 
     public function render($request, Throwable $e)
     {
-        if ($e instanceof UnauthorizedException) {
-            return response()->view("errors.forbidden", [
-                "exception" => $e
-            ], 403);
+        if ($e instanceof AuthenticationException) {
+            return $this->error('No estás autenticado', $e->getMessage(), Response::HTTP_UNAUTHORIZED);
         }
         return parent::render($request, $e);
     }

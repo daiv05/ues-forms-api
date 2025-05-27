@@ -30,31 +30,6 @@ class EventServiceProvider extends ServiceProvider
         // Event: Registered
         Registered::class => [
             SendEmailVerificationNotification::class,
-            LogUserRegisteredEvent::class,  // Agregar el listener para el evento Registered
-        ],
-
-        // Event: Login
-        Login::class => [
-            LogUserLoginEvent::class, // Registra el listener para Login
-        ],
-
-        // Event: Logout
-        Logout::class => [
-            LogUserLogoutEvent::class, // Registra el listener para Logout
-        ],
-
-        // Event: PasswordReset
-        PasswordReset::class => [
-            LogPasswordResetEvent::class, // Registra el listener para PasswordReset
-        ],
-        // Event: Validated
-        Validated::class => [
-            LogUserValidatedEvent::class, // Registra el listener para Validated
-        ],
-
-        // Event: Verified
-        Verified::class => [
-            LogUserVerifiedEvent::class, // Registra el listener para Verified
         ],
     ];
 
