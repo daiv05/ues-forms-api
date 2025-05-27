@@ -131,16 +131,16 @@ class RoleController extends Controller
             $role->description = $validatedData['description'] ?? null;
             $role->activo = $validatedData['activo'] ?? 1;
 
+            $role->save();
+
             if (isset($validatedData['permissions'])) {
                 $spatieRole = SpatieRole::findByName($validatedData['name']);
                 if ($spatieRole) {
-                    $role->syncPermissions($spatieRole->permissions);
+                    $spatieRole->syncPermissions($validatedData['permissions']);
                 } else {
                     return $this->error('Error al actualizar el rol', 'No se encontró el rol', Response::HTTP_NOT_FOUND);
                 }
             }
-
-            $role->save();
 
             return $this->success('Rol actualizado exitosamente', $role, Response::HTTP_OK);
         } catch (\Exception $e) {

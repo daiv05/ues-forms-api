@@ -92,7 +92,7 @@ class AuthController extends Controller
 
         // Usuario bloqueado
         $isUnlocked = true;
-        if ($user->id_estado === 3) {
+        if ($user->id_estado === EstadosEnum::BLOQUEADO) {
             $isUnlocked = false;
         }
 
